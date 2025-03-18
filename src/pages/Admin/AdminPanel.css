@@ -1,0 +1,183 @@
+/* General Page Styling */
+body {
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    background-color: #f4f4f4;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background: #1a2a3a;
+    color: white;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 100; /* Ensure sidebar appears above content */
+}
+
+.sidebar h2 {
+    padding: 20px;
+    margin: 0;
+    font-weight: 500;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar ul li {
+    padding: 15px 20px;
+    cursor: pointer;
+}
+
+.sidebar ul li:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Main Content - FIX THE LEFT MARGIN */
+.main-content {
+    margin-left: 250px; /* Match the sidebar width exactly */
+    width: calc(100% - 250px);
+    padding: 0;
+    box-sizing: border-box;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Chart Container - FIX LEFT ALIGNMENT */
+.chart-container {
+    width: 100%;
+    background: white;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+/* Chart Axis and Grid - CRITICAL FOR ALIGNMENT */
+.chart-container .x-axis,
+.chart-container .y-axis {
+    stroke: #ccc;
+    stroke-width: 1;
+}
+
+.chart-container .grid-line {
+    stroke: #e5e5e5;
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+}
+
+/* Bar Chart Styling */
+.chart-container .bar {
+    fill: #3498db;
+}
+
+.chart-container .bar.website-visits {
+    fill: #9b59b6;
+}
+
+/* Table Container - FIX ALIGNMENT */
+.table-container {
+    width: 100%;
+    margin: 0;
+    background: white;
+    border-spacing: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+thead {
+    background: #1a2a3a;
+    color: white;
+}
+
+thead th {
+    padding: 15px;
+    text-align: center;
+    font-weight: 500;
+}
+
+tbody td {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Email column (if present) */
+th.email-column, 
+td.email-column {
+    text-align: left;
+    padding-left: 20px;
+}
+
+/* Add a transform to make sure chart renders correctly */
+.chart-container svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* Position chart labels properly */
+.chart-container .axis-label {
+    text-anchor: middle;
+    font-size: 12px;
+}
+
+/* Fix button styling */
+.ban-btn {
+    padding: 8px 16px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.ban-btn:hover {
+    background-color: #c0392b;
+}
+
+/* Critical fix for chart positioning */
+.chart-container svg g {
+    transform: translateX(0); /* Ensure no unexpected shifts */
+}
+
+/* Make sure the chart starts correctly */
+.chart-container {
+    padding-left: 0;
+}
+
+/* Add proper spacing between sidebar and content if needed */
+@media (min-width: 1200px) {
+    .sidebar {
+        width: 250px;
+    }
+    
+    .main-content {
+        margin-left: 250px;
+        width: calc(100% - 250px);
+    }
+}
+
+/* Handle smaller screens */
+@media (max-width: 992px) {
+    .sidebar {
+        width: 200px;
+    }
+    
+    .main-content {
+        margin-left: 200px;
+        width: calc(100% - 200px);
+    }
+}

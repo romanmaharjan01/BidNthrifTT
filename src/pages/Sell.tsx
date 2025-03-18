@@ -1,0 +1,93 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { auth, db } from "./firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { useToast } from "@/hooks/use-toast";
+
+const Sell = () => {
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isAuction, setIsAuction] = useState(false);
+  const [auctionEndTime, setAuctionEndTime] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleSell = async () => {
+    if (!title || !price || !description || !imageUrl || (isAuction && !auctionEndTime)) {
+      toast({ title: "Error", description: "All fields are required!", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        toast({ title: "Error", description: "You must be logged in!", variant: "destructive" });
+        navigate("/login");
+        return;
+      }
+
+      const collectionName = isAuction ? "auctions" : "products";
+      await addDoc(collection(db, collectionName), {
+        title,
+        price,
+        description,
+        imageUrl,
+        sellerId: user.uid,
+        sellerEmail: user.email,
+        createdAt: new Date(),
+        ...(isAuction && { endTime: new Date(auctionEndTime) })
+      });
+
+      toast({ title: "Success", description: "Your item has been listed!" });
+      navigate("/shop");
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1 py-12 flex items-center justify-center">
+        <div className="max-w-lg w-full p-6 bg-white shadow-lg rounded-lg">
+          <h2 className="text-2xl font-bold text-center mb-6">Sell Your Item</h2>
+          <div className="space-y-4">
+            <Input type="text" placeholder="Image URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+            {imageUrl && <img src={imageUrl} alt="Preview" className="w-full h-48 object-cover mt-2 rounded-md" />}
+            <Input type="text" placeholder="Product Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input type="number" placeholder="Price ($)" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border rounded-md p-2" rows={3} />
+            <label className="flex items-center">
+              <input type="checkbox" checked={isAuction} onChange={() => setIsAuction(!isAuction)} className="mr-2" />
+              List as an auction
+            </label>
+            {isAuction && (
+              <Input
+                type="datetime-local"
+                value={auctionEndTime}
+                onChange={(e) => setAuctionEndTime(e.target.value)}
+                className="w-full border rounded-md p-2"
+              />
+            )}
+          </div>
+          <Button onClick={handleSell} disabled={isLoading} className="w-full mt-4 bg-green-600 hover:bg-green-700">
+            {isLoading ? "Saving..." : isAuction ? "List for Auction" : "List for Sale"}
+          </Button>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Sell;

@@ -1,0 +1,106 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 10% 98%;
+    --foreground: 180 4% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 180 4% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 180 4% 14%;
+
+    --primary: 152 36% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 180 4% 95%;
+    --secondary-foreground: 180 4% 14%;
+
+    --muted: 180 5% 92%;
+    --muted-foreground: 180 4% 46%;
+
+    --accent: 39 100% 67%;
+    --accent-foreground: 180 4% 14%;
+
+    --destructive: 355 77% 59%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 5% 88%;
+    --input: 180 5% 88%;
+    --ring: 152 36% 45%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 180 6% 10%;
+    --foreground: 180 4% 95%;
+
+    --card: 180 6% 12%;
+    --card-foreground: 180 4% 95%;
+
+    --popover: 180 6% 12%;
+    --popover-foreground: 180 4% 95%;
+
+    --primary: 152 32% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 180 4% 20%;
+    --secondary-foreground: 180 4% 95%;
+
+    --muted: 180 5% 20%;
+    --muted-foreground: 180 4% 65%;
+
+    --accent: 39 90% 55%;
+    --accent-foreground: 180 4% 14%;
+
+    --destructive: 355 77% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 6% 25%;
+    --input: 180 6% 25%;
+    --ring: 152 32% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .bid-button {
+    @apply relative inline-flex items-center justify-center overflow-hidden rounded-md bg-brand-green px-6 py-3 font-medium text-white transition-all duration-300 hover:bg-brand-green-dark focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2;
+  }
+  
+  .countdown-timer {
+    @apply text-brand-accent-red font-medium;
+  }
+  
+  .product-card {
+    @apply relative overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:shadow-md;
+  }
+  
+  .product-image {
+    @apply aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105;
+  }
+}
