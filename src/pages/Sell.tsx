@@ -13,6 +13,9 @@ const Sell = () => {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [stock, setStock] = useState("");
+  const [size, setSize] = useState("");
+  const [category, setCategory] = useState("Outerwear");
   const [isAuction, setIsAuction] = useState(false);
   const [auctionEndTime, setAuctionEndTime] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,8 +23,21 @@ const Sell = () => {
   const navigate = useNavigate();
 
   const handleSell = async () => {
-    if (!title || !price || !description || !imageUrl || (isAuction && !auctionEndTime)) {
+    if (!title || !price || !description || !imageUrl || !stock || !size || !category || (isAuction && !auctionEndTime)) {
       toast({ title: "Error", description: "All fields are required!", variant: "destructive" });
+      return;
+    }
+
+    const numericPrice = parseFloat(price);
+    const numericStock = parseInt(stock);
+
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      toast({ title: "Error", description: "Price must be a positive number!", variant: "destructive" });
+      return;
+    }
+
+    if (isNaN(numericStock) || numericStock <= 0) {
+      toast({ title: "Error", description: "Stock quantity must be greater than zero!", variant: "destructive" });
       return;
     }
 
@@ -37,9 +53,12 @@ const Sell = () => {
       const collectionName = isAuction ? "auctions" : "products";
       await addDoc(collection(db, collectionName), {
         title,
-        price,
+        price: numericPrice, // Store price as a number
         description,
         imageUrl,
+        stock: numericStock, // Store stock as a number
+        size,
+        category,
         sellerId: user.uid,
         sellerEmail: user.email,
         createdAt: new Date(),
@@ -65,7 +84,15 @@ const Sell = () => {
             <Input type="text" placeholder="Image URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
             {imageUrl && <img src={imageUrl} alt="Preview" className="w-full h-48 object-cover mt-2 rounded-md" />}
             <Input type="text" placeholder="Product Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <Input type="number" placeholder="Price ($)" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <Input type="number" placeholder="Price (Nrs)" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <Input type="number" placeholder="Stock Quantity" value={stock} onChange={(e) => setStock(e.target.value)} />
+            <Input type="text" placeholder="Size (e.g., M, L, US 9)" value={size} onChange={(e) => setSize(e.target.value)} />
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded-md p-2">
+              <option value="Outerwear">Outerwear</option>
+              <option value="Footwear">Footwear</option>
+              <option value="Accessories">Accessories</option>
+              <option value="Knitwear">Knitwear</option>
+            </select>
             <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border rounded-md p-2" rows={3} />
             <label className="flex items-center">
               <input type="checkbox" checked={isAuction} onChange={() => setIsAuction(!isAuction)} className="mr-2" />
