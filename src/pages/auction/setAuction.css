@@ -1,0 +1,89 @@
+.auction-container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  
+  .auction-container h2 {
+    color: #2c3e50;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 24px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+  }
+  
+  .auction-container select,
+  .auction-container input {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+  }
+  
+  .auction-container select:focus,
+  .auction-container input:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  }
+  
+  .auction-container select {
+    background-color: white;
+    cursor: pointer;
+  }
+  
+  .auction-container input[type="number"]::-webkit-inner-spin-button,
+  .auction-container input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1;
+    height: 30px;
+  }
+  
+  .auction-container button {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 10px;
+  }
+  
+  .auction-container button:hover {
+    background-color: #2980b9;
+  }
+  
+  .auction-container button:active {
+    transform: translateY(1px);
+  }
+  
+  /* For mobile devices */
+  @media (max-width: 768px) {
+    .auction-container {
+      margin: 20px;
+      padding: 20px;
+    }
+    
+    .auction-container select,
+    .auction-container input {
+      padding: 10px;
+    }
+    
+    .auction-container button {
+      padding: 12px;
+    }
+  }
