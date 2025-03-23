@@ -1,183 +1,288 @@
 /* General Page Styling */
-body {
-    font-family: 'Segoe UI', Roboto, sans-serif;
-    margin: 0;
-    padding: 0;
+.admin-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f0f4f8 0%, #e6ecef 100%);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+  }
+  
+  /* Container */
+  .admin-container {
     display: flex;
-    background-color: #f4f4f4;
-}
-
-/* Sidebar Styling */
-.sidebar {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    gap: 20px;
+  }
+  
+  /* Sidebar */
+  .sidebar {
     width: 250px;
-    height: 100vh;
-    background: #1a2a3a;
-    color: white;
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 100; /* Ensure sidebar appears above content */
-}
-
-.sidebar h2 {
+    background: #fff;
     padding: 20px;
-    margin: 0;
-    font-weight: 500;
-}
-
-.sidebar ul {
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .sidebar h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a3c34;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  /* Sidebar Navigation */
+  .sidebar ul {
     list-style: none;
     padding: 0;
-    margin: 0;
-}
-
-.sidebar ul li {
+  }
+  
+  .sidebar li {
     padding: 15px 20px;
+    font-size: 16px;
+    color: #455a64;
     cursor: pointer;
-}
-
-.sidebar ul li:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-/* Main Content - FIX THE LEFT MARGIN */
-.main-content {
-    margin-left: 250px; /* Match the sidebar width exactly */
-    width: calc(100% - 250px);
-    padding: 0;
-    box-sizing: border-box;
-    overflow-x: hidden; /* Prevent horizontal scroll */
-}
-
-/* Chart Container - FIX LEFT ALIGNMENT */
-.chart-container {
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  
+  .sidebar li:hover {
+    background: #00796b;
+    color: white;
+    border-radius: 8px;
+  }
+  
+  /* Main Content */
+  .content {
+    flex: 1;
+    background: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    min-height: 400px;
+  }
+  
+  .content h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a3c34;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  /* Profile Section in Content Area */
+  .profile-section {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .profile-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  
+  .profile-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #00796b;
+  }
+  
+  .profile-details {
     width: 100%;
-    background: white;
-    margin: 0;
-    box-sizing: border-box;
-}
-
-/* Chart Axis and Grid - CRITICAL FOR ALIGNMENT */
-.chart-container .x-axis,
-.chart-container .y-axis {
-    stroke: #ccc;
-    stroke-width: 1;
-}
-
-.chart-container .grid-line {
-    stroke: #e5e5e5;
-    stroke-width: 1;
-    stroke-dasharray: 2,2;
-}
-
-/* Bar Chart Styling */
-.chart-container .bar {
-    fill: #3498db;
-}
-
-.chart-container .bar.website-visits {
-    fill: #9b59b6;
-}
-
-/* Table Container - FIX ALIGNMENT */
-.table-container {
+    max-width: 400px;
+  }
+  
+  .profile-details label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #455a64;
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  .profile-edit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  
+  .profile-input {
+    font-size: 14px;
+    padding: 8px;
+    border-radius: 5px;
     width: 100%;
-    margin: 0;
-    background: white;
-    border-spacing: 0;
-}
-
-table {
+  }
+  
+  .edit-btn, .save-btn {
+    padding: 6px;
+  }
+  
+  .save-btn {
+    background: #00796b;
+    color: white;
+  }
+  
+  .save-btn:hover {
+    background: #005f56;
+  }
+  
+  .logout-btn {
+    background: #d81b60;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+    width: 100%;
+  }
+  
+  .logout-btn:hover {
+    background: #c2185b;
+  }
+  
+  /* Table Styling */
+  table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
-}
-
-thead {
-    background: #1a2a3a;
+  }
+  
+  thead tr {
+    background: #00796b;
     color: white;
-}
-
-thead th {
+  }
+  
+  th, td {
     padding: 15px;
-    text-align: center;
-    font-weight: 500;
-}
-
-tbody td {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Email column (if present) */
-th.email-column, 
-td.email-column {
     text-align: left;
-    padding-left: 20px;
-}
-
-/* Add a transform to make sure chart renders correctly */
-.chart-container svg {
-    display: block;
-    width: 100%;
-    height: auto;
-}
-
-/* Position chart labels properly */
-.chart-container .axis-label {
-    text-anchor: middle;
-    font-size: 12px;
-}
-
-/* Fix button styling */
-.ban-btn {
-    padding: 8px 16px;
-    background-color: #e74c3c;
+    font-size: 14px;
+  }
+  
+  th {
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  tbody tr {
+    border-bottom: 1px solid #eceff1;
+    transition: background 0.3s ease;
+  }
+  
+  tbody tr:hover {
+    background: #f5f7fa;
+  }
+  
+  td {
+    color: #455a64;
+  }
+  
+  /* Buttons */
+  .ban-btn {
+    background: #d81b60;
     color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.ban-btn:hover {
-    background-color: #c0392b;
-}
-
-/* Critical fix for chart positioning */
-.chart-container svg g {
-    transform: translateX(0); /* Ensure no unexpected shifts */
-}
-
-/* Make sure the chart starts correctly */
-.chart-container {
-    padding-left: 0;
-}
-
-/* Add proper spacing between sidebar and content if needed */
-@media (min-width: 1200px) {
+    padding: 8px 15px;
+    border-radius: 5px;
+  }
+  
+  .ban-btn:hover {
+    background: #c2185b;
+  }
+  
+  .unban-btn {
+    background: #4caf50;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+  }
+  
+  .unban-btn:hover {
+    background: #43a047;
+  }
+  
+  .delete-btn {
+    background: #e57373;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+  }
+  
+  .delete-btn:hover {
+    background: #d32f2f;
+  }
+  
+  /* Loading State */
+  .loading {
+    text-align: center;
+    font-size: 20px;
+    color: #607d8b;
+    padding: 50px 0;
+    min-height: calc(100vh - 200px);
+  }
+  
+  /* Error State */
+  .error {
+    text-align: center;
+    font-size: 18px;
+    color: #d81b60;
+    padding: 50px 0;
+    min-height: calc(100vh - 200px);
+  }
+  
+  /* No Data State */
+  .no-data {
+    text-align: center;
+    font-size: 16px;
+    color: #78909c;
+    padding: 20px 0;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .admin-container {
+      flex-direction: column;
+      padding: 20px 15px;
+    }
+  
     .sidebar {
-        width: 250px;
+      width: 100%;
+      margin-bottom: 20px;
     }
-    
-    .main-content {
-        margin-left: 250px;
-        width: calc(100% - 250px);
+  
+    .content h1 {
+      font-size: 28px;
     }
-}
-
-/* Handle smaller screens */
-@media (max-width: 992px) {
-    .sidebar {
-        width: 200px;
+  
+    table {
+      font-size: 12px;
     }
-    
-    .main-content {
-        margin-left: 200px;
-        width: calc(100% - 200px);
+  
+    th, td {
+      padding: 10px;
     }
-}
+  
+    .profile-image {
+      width: 100px;
+      height: 100px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .content h1 {
+      font-size: 24px;
+    }
+  
+    .sidebar li {
+      padding: 12px 15px;
+      font-size: 14px;
+    }
+  
+    th, td {
+      padding: 8px;
+    }
+  
+    .profile-input {
+      font-size: 12px;
+    }
+  }
