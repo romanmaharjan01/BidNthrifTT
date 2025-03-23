@@ -1,3 +1,4 @@
+// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,13 +15,18 @@ import Shop from "./pages/Shop";
 import Auctions from "./pages/auction/Auctions";
 import Sell from "./pages/seller/Sell";
 import About from "./pages/About";
-import Profile from "./pages/Profile";
+import Profile from "./pages/user/Profile"; // Main Profile page
 import Favorites from "./pages/Favorites";
 import Cart from "./pages/Cart";
 import Payment from "./pages/Payment";
 import Admin from "./pages/Admin/Admin";
-import User from "./pages/User";
-import UserDetails from "./pages/UserDetails"; // Add this import
+
+// Import User Details and its child components
+import UserDetails from "./pages/user/UserDetails";
+import ProfileSection from "./pages/user/Profile"; // For /user-details/profile
+import PurchasedProducts from "./pages/user/PurchasedProducts"; // For /user-details/purchases
+import CartItems from "./pages/user/CartItems"; // For /user-details/cart
+import UserFavorites from "./pages/user/Favourites"; // For /user-details/favorites
 
 // Import Seller Dashboard and its child components
 import SellerDashboard from "./pages/seller/SellerDashboard";
@@ -57,8 +63,15 @@ const App = () => (
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
           <Route path="/payment/:productId" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-          <Route path="/user" element={<ProtectedRoute><User /></ProtectedRoute>} />
-          <Route path="/user-details" element={<ProtectedRoute><UserDetails /></ProtectedRoute>} /> {/* Add this route */}
+
+          {/* User Details with Nested Routes */}
+          <Route path="/user-details" element={<ProtectedRoute><UserDetails /></ProtectedRoute>}>
+            <Route path="profile" element={<ProfileSection />} />
+            <Route path="purchases" element={<PurchasedProducts />} />
+            <Route path="cart" element={<CartItems />} />
+            <Route path="favorites" element={<UserFavorites />} />
+            <Route index element={<ProfileSection />} /> {/* Default to Profile */}
+          </Route>
 
           {/* Seller Dashboard with Nested Routes */}
           <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>}>
