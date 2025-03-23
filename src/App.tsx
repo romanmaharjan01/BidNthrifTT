@@ -20,10 +20,17 @@ import Cart from "./pages/Cart";
 import Payment from "./pages/Payment";
 import Admin from "./pages/Admin/Admin";
 import User from "./pages/User";
+import UserDetails from "./pages/UserDetails"; // Add this import
+
+// Import Seller Dashboard and its child components
+import SellerDashboard from "./pages/seller/SellerDashboard";
+import Dashboard from "./pages/seller/Dashboard";
+import Listings from "./pages/seller/Listing";
+import AddListing from "./pages/seller/AddListing";
+import SellerProfile from "./pages/seller/SellerProfile";
 
 // Import Authentication & Protected Route
 import ProtectedRoute from "./pages/ProtectedRoute";
-import SellerDashboard from "./pages/seller/seller"; // Fixed import issue
 
 const queryClient = new QueryClient();
 
@@ -51,7 +58,15 @@ const App = () => (
           <Route path="/payment/:productId" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/user" element={<ProtectedRoute><User /></ProtectedRoute>} />
-          <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
+          <Route path="/user-details" element={<ProtectedRoute><UserDetails /></ProtectedRoute>} /> {/* Add this route */}
+
+          {/* Seller Dashboard with Nested Routes */}
+          <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>}>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="listings" element={<Listings />} />
+            <Route path="add" element={<AddListing />} />
+            <Route path="sellerprofile" element={<SellerProfile />} />
+          </Route>
 
           {/* 🚫 404 Catch-All */}
           <Route path="*" element={<NotFound />} />
