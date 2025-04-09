@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+<<<<<<< HEAD
 import { collection, getDocs, query, where } from "firebase/firestore";
+=======
+import { collection, getDocs } from "firebase/firestore";
+>>>>>>> e553efe (Initial commit after fixing corruption)
 import { db } from "./firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -32,7 +36,10 @@ const Shop = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
+<<<<<<< HEAD
   // Define all possible categories statically
+=======
+>>>>>>> e553efe (Initial commit after fixing corruption)
   const allCategories = [
     "Clothing",
     "Shoes",
@@ -182,6 +189,7 @@ const Shop = () => {
           <div className="products-grid">
             {filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
+<<<<<<< HEAD
                 <div key={product.id} className="product-card">
                   <div className="product-image-container">
                     <img
@@ -232,6 +240,56 @@ const Shop = () => {
                     </div>
                   </div>
                 </div>
+=======
+                <Link 
+                  to={`/product-detail/${product.id}`} 
+                  key={product.id} 
+                  className="product-card-link"
+                >
+                  <div className="product-card">
+                    <div className="product-image-container">
+                      <img
+                        src={product.imageUrl}
+                        alt={product.title}
+                        className="product-image"
+                      />
+                      <button
+                        className="favorite-button"
+                        onClick={(e) => {
+                          e.preventDefault(); // Prevent Link navigation
+                          toggleFavorite(product.id);
+                        }}
+                        aria-label={favorites.includes(product.id) ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        {favorites.includes(product.id) ? <FaHeart className="heart-filled" /> : <FaRegHeart />}
+                      </button>
+                    </div>
+
+                    <div className="product-info">
+                      <h3 className="product-title">{product.title}</h3>
+                      
+                      <div className="product-meta">
+                        <span className="product-category">{product.category}</span>
+                        <span className="product-size">{product.size}</span>
+                      </div>
+                      
+                      <p className="product-price">${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}</p>
+                      
+                      <div className="product-status">
+                        <span className={`product-stock ${product.stock > 0 ? "in-stock" : "out-of-stock"}`}>
+                          {product.stock > 0 ? `In Stock (${product.stock})` : "Out of Stock"}
+                        </span>
+
+                        {product.isAuction && (
+                          <span className={`product-auction ${new Date(product.endsAt!).getTime() < Date.now() ? "auction-ended" : "auction-active"}`}>
+                            {new Date(product.endsAt!).getTime() < Date.now() ? "Auction Ended" : `Current Bid: $${typeof product.currentBid === 'number' ? product.currentBid.toFixed(2) : product.currentBid}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+>>>>>>> e553efe (Initial commit after fixing corruption)
               ))
             ) : (
               <div className="no-products">

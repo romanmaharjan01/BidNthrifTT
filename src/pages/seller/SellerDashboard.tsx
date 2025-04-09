@@ -30,7 +30,11 @@ const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>("");
+<<<<<<< HEAD
   const [sellerImage, setSellerImage] = useState<string>(""); // State for seller image
+=======
+  const [sellerImage, setSellerImage] = useState<string>("");
+>>>>>>> e553efe (Initial commit after fixing corruption)
   const [stats, setStats] = useState<Stats>({
     totalListings: 0,
     totalSales: 0,
@@ -51,8 +55,12 @@ const SellerDashboard: React.FC = () => {
         return;
       }
       setUserId(user.uid);
+<<<<<<< HEAD
       // Set seller image from Firebase Auth if available, or fetch from Firestore
       setSellerImage(user.photoURL || "https://via.placeholder.com/100"); // Fallback image
+=======
+      setSellerImage(user.photoURL || "https://via.placeholder.com/100");
+>>>>>>> e553efe (Initial commit after fixing corruption)
       await fetchSellerData(user.uid);
     });
 
@@ -125,12 +133,23 @@ const SellerDashboard: React.FC = () => {
               className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
             >
               <i className="fa fa-box"></i> My Listings
+
             </NavLink>
+
+             </NavLink>
+
             <NavLink
               to="/seller/add"
               className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
             >
               <i className="fa fa-plus-circle"></i> Add Listing
+            </NavLink>
+            <NavLink
+
+              to="/seller/chat"
+              className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
+            >
+              <i className="fa fa-comments"></i> Messages
             </NavLink>
             <NavLink
               to="/seller/sellerprofile"
@@ -141,7 +160,11 @@ const SellerDashboard: React.FC = () => {
           </nav>
         </aside>
         <section className="content">
+
           <Outlet context={{ stats, products, isLoadingData, fetchSellerData, formatCurrency }} />
+
+          <Outlet context={{ stats, products, isLoadingData, fetchSellerData, formatCurrency, userId }} />
+
         </section>
       </main>
     </div>

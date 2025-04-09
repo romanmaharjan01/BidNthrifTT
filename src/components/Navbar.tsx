@@ -57,7 +57,11 @@ const Navbar = () => {
             {user ? (
               <>
                 <Button variant="ghost" size="icon" asChild className="text-gray-700 hover:text-brand-green">
+<<<<<<< HEAD
                   <Link to="/consumerchat">
+=======
+                  <Link to="/chat">
+>>>>>>> e553efe (Initial commit after fixing corruption)
                     <MessageSquare className="h-5 w-5" />
                   </Link>
                 </Button>
@@ -98,7 +102,10 @@ const Navbar = () => {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-200 p-4">
+<<<<<<< HEAD
             {/* Mobile Navigation */}
+=======
+>>>>>>> e553efe (Initial commit after fixing corruption)
             <div className="flex flex-col gap-3">
               <Link 
                 to="/shop" 
@@ -138,7 +145,11 @@ const Navbar = () => {
                     Cart
                   </Link>
                   <Link 
+<<<<<<< HEAD
                     to="/consumerchat" 
+=======
+                    to="/message" 
+>>>>>>> e553efe (Initial commit after fixing corruption)
                     className="text-gray-700 hover:text-brand-green py-2"
                     onClick={toggleMenu}
                   >
