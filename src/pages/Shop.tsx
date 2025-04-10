@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-<<<<<<< HEAD
-import { collection, getDocs, query, where } from "firebase/firestore";
-=======
 import { collection, getDocs } from "firebase/firestore";
->>>>>>> e553efe (Initial commit after fixing corruption)
 import { db } from "./firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -36,10 +32,6 @@ const Shop = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-<<<<<<< HEAD
-  // Define all possible categories statically
-=======
->>>>>>> e553efe (Initial commit after fixing corruption)
   const allCategories = [
     "Clothing",
     "Shoes",
@@ -73,7 +65,7 @@ const Shop = () => {
             seller: data.seller || "",
           } as Product;
         });
-        
+
         setProducts(productList);
         setFilteredProducts(productList);
       } catch (error) {
@@ -82,12 +74,12 @@ const Shop = () => {
         setIsLoading(false);
       }
     };
-    
+
     const savedFavorites = localStorage.getItem("favorites");
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites));
     }
-    
+
     fetchProducts();
   }, []);
 
@@ -102,19 +94,20 @@ const Shop = () => {
 
   const filterProducts = (search: string, category: string) => {
     let filtered = [...products];
-    
+
     if (search.trim()) {
       const lowerSearchTerm = search.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.title.toLowerCase().includes(lowerSearchTerm) ||
-        product.description.toLowerCase().includes(lowerSearchTerm)
+      filtered = filtered.filter(
+        (product) =>
+          product.title.toLowerCase().includes(lowerSearchTerm) ||
+          product.description.toLowerCase().includes(lowerSearchTerm)
       );
     }
-    
+
     if (category) {
-      filtered = filtered.filter(product => product.category === category);
+      filtered = filtered.filter((product) => product.category === category);
     }
-    
+
     setFilteredProducts(filtered);
   };
 
@@ -189,61 +182,9 @@ const Shop = () => {
           <div className="products-grid">
             {filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
-<<<<<<< HEAD
-                <div key={product.id} className="product-card">
-                  <div className="product-image-container">
-                    <img
-                      src={product.imageUrl}
-                      alt={product.title}
-                      className="product-image"
-                    />
-                    <button
-                      className="favorite-button"
-                      onClick={() => toggleFavorite(product.id)}
-                      aria-label={favorites.includes(product.id) ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      {favorites.includes(product.id) ? <FaHeart className="heart-filled" /> : <FaRegHeart />}
-                    </button>
-                  </div>
-
-                  <div className="product-info">
-                    <h3 className="product-title">{product.title}</h3>
-                    
-                    <div className="product-meta">
-                      <span className="product-category">{product.category}</span>
-                      <span className="product-size">{product.size}</span>
-                    </div>
-                    
-                    <p className="product-price">${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}</p>
-                    
-                    <div className="product-status">
-                      <span className={`product-stock ${product.stock > 0 ? "in-stock" : "out-of-stock"}`}>
-                        {product.stock > 0 ? `In Stock (${product.stock})` : "Out of Stock"}
-                      </span>
-
-                      {product.isAuction && (
-                        <span className={`product-auction ${new Date(product.endsAt!).getTime() < Date.now() ? "auction-ended" : "auction-active"}`}>
-                          {new Date(product.endsAt!).getTime() < Date.now() ? "Auction Ended" : `Current Bid: $${typeof product.currentBid === 'number' ? product.currentBid.toFixed(2) : product.currentBid}`}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="product-actions">
-                      <Link to={`/product-detail/${product.id}`} className="details-link">
-                        <Button className="details-button">View Details</Button>
-                      </Link>
-                      {product.stock > 0 && !product.isAuction && (
-                        <Link to={`/payment/${product.id}`} className="buy-link">
-                          <Button className="buy-button">Buy Now</Button>
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </div>
-=======
-                <Link 
-                  to={`/product-detail/${product.id}`} 
-                  key={product.id} 
+                <Link
+                  to={`/product-detail/${product.id}`}
+                  key={product.id}
                   className="product-card-link"
                 >
                   <div className="product-card">
@@ -256,44 +197,94 @@ const Shop = () => {
                       <button
                         className="favorite-button"
                         onClick={(e) => {
-                          e.preventDefault(); // Prevent Link navigation
+                          e.preventDefault();
                           toggleFavorite(product.id);
                         }}
-                        aria-label={favorites.includes(product.id) ? "Remove from favorites" : "Add to favorites"}
+                        aria-label={
+                          favorites.includes(product.id)
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
                       >
-                        {favorites.includes(product.id) ? <FaHeart className="heart-filled" /> : <FaRegHeart />}
+                        {favorites.includes(product.id) ? (
+                          <FaHeart className="heart-filled" />
+                        ) : (
+                          <FaRegHeart />
+                        )}
                       </button>
                     </div>
 
                     <div className="product-info">
                       <h3 className="product-title">{product.title}</h3>
-                      
+
                       <div className="product-meta">
-                        <span className="product-category">{product.category}</span>
+                        <span className="product-category">
+                          {product.category}
+                        </span>
                         <span className="product-size">{product.size}</span>
                       </div>
-                      
-                      <p className="product-price">${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}</p>
-                      
+
+                      <p className="product-price">
+                        $
+                        {typeof product.price === "number"
+                          ? product.price.toFixed(2)
+                          : product.price}
+                      </p>
+
                       <div className="product-status">
-                        <span className={`product-stock ${product.stock > 0 ? "in-stock" : "out-of-stock"}`}>
-                          {product.stock > 0 ? `In Stock (${product.stock})` : "Out of Stock"}
+                        <span
+                          className={`product-stock ${
+                            product.stock > 0 ? "in-stock" : "out-of-stock"
+                          }`}
+                        >
+                          {product.stock > 0
+                            ? `In Stock (${product.stock})`
+                            : "Out of Stock"}
                         </span>
 
                         {product.isAuction && (
-                          <span className={`product-auction ${new Date(product.endsAt!).getTime() < Date.now() ? "auction-ended" : "auction-active"}`}>
-                            {new Date(product.endsAt!).getTime() < Date.now() ? "Auction Ended" : `Current Bid: $${typeof product.currentBid === 'number' ? product.currentBid.toFixed(2) : product.currentBid}`}
+                          <span
+                            className={`product-auction ${
+                              product.endsAt &&
+                              new Date(product.endsAt).getTime() < Date.now()
+                                ? "auction-ended"
+                                : "auction-active"
+                            }`}
+                          >
+                            {product.endsAt &&
+                            new Date(product.endsAt).getTime() < Date.now()
+                              ? "Auction Ended"
+                              : `Current Bid: $${
+                                  typeof product.currentBid === "number"
+                                    ? product.currentBid.toFixed(2)
+                                    : product.currentBid
+                                }`}
                           </span>
                         )}
                       </div>
+
+                      {!product.isAuction && product.stock > 0 && (
+                        <div className="product-actions">
+                          <Link
+                            to={`/payment/${product.id}`}
+                            className="buy-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button className="buy-button">Buy Now</Button>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Link>
->>>>>>> e553efe (Initial commit after fixing corruption)
               ))
             ) : (
               <div className="no-products">
-                <p>{searchTerm || selectedCategory ? "No products match your filters" : "No Products Available"}</p>
+                <p>
+                  {searchTerm || selectedCategory
+                    ? "No products match your filters"
+                    : "No Products Available"}
+                </p>
                 {(searchTerm || selectedCategory) && (
                   <Button onClick={clearFilters} className="reset-search-button">
                     Reset Filters

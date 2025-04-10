@@ -16,18 +16,16 @@ interface ContextType {
   formatCurrency: (amount: number) => string;
 }
 
-<<<<<<< HEAD
-=======
 // Define category sizes for relevant categories
 const categorySizes: { [key: string]: string[] } = {
   Clothing: ["S", "M", "L", "XL"],
   Shoes: ["38", "39", "40", "41", "42", "43", "44", "45"],
-  Accessories: [], // No sizes for Accessories
-  Electronics: [], // No sizes for Electronics
-  "Home goods": [], // No sizes for Home goods
-  Books: [], // No sizes for Books
-  Toys: [], // No sizes for Toys
-  Jewelry: [], // No sizes for Jewelry
+  Accessories: [],
+  Electronics: [],
+  "Home goods": [],
+  Books: [],
+  Toys: [],
+  Jewelry: [],
 };
 
 // List of categories
@@ -42,7 +40,6 @@ const categories = [
   "Jewelry",
 ];
 
->>>>>>> e553efe (Initial commit after fixing corruption)
 const AddListing: React.FC = () => {
   const { fetchSellerData } = useOutletContext<ContextType>();
   const { toast } = useToast();
@@ -53,45 +50,29 @@ const AddListing: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [stock, setStock] = useState<string>("");
   const [size, setSize] = useState<string>("");
-<<<<<<< HEAD
-  const [category, setCategory] = useState<string>("Outerwear");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const handleSell = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!title || !price || !description || !imageUrl || !stock || !size || !category) {
-=======
-  const [category, setCategory] = useState<string>("Clothing"); // Default to "Clothing"
+  const [category, setCategory] = useState<string>("Clothing");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCategory = e.target.value;
     setCategory(newCategory);
-    // Reset size when category changes
     const newSizes = categorySizes[newCategory] || [];
-    setSize(newSizes.length > 0 ? newSizes[0] : ""); // Set to first size if available, otherwise empty
+    setSize(newSizes.length > 0 ? newSizes[0] : "");
   };
 
   const handleSell = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Validate required fields (skip size validation if category has no sizes)
     if (!title || !price || !description || !imageUrl || !stock || !category) {
->>>>>>> e553efe (Initial commit after fixing corruption)
       toast({ title: "Error", description: "All fields are required!", variant: "destructive" });
       return;
     }
 
-<<<<<<< HEAD
-=======
-    // Validate size only if the category has sizes
     if (categorySizes[category]?.length > 0 && !size) {
       toast({ title: "Error", description: "Size is required for this category!", variant: "destructive" });
       return;
     }
 
->>>>>>> e553efe (Initial commit after fixing corruption)
     const numericPrice = parseFloat(price);
     const numericStock = parseInt(stock);
 
@@ -124,11 +105,7 @@ const AddListing: React.FC = () => {
         description,
         imageUrl,
         stock: numericStock,
-<<<<<<< HEAD
-        size,
-=======
-        size: categorySizes[category]?.length > 0 ? size : "", // Only include size if the category has sizes
->>>>>>> e553efe (Initial commit after fixing corruption)
+        size: categorySizes[category]?.length > 0 ? size : "",
         category,
         sellerId: user.uid,
         sellerEmail: user.email,
@@ -142,12 +119,8 @@ const AddListing: React.FC = () => {
       setImageUrl("");
       setStock("");
       setSize("");
-<<<<<<< HEAD
-      setCategory("Outerwear");
-=======
-      setCategory("Clothing"); // Reset to default category
->>>>>>> e553efe (Initial commit after fixing corruption)
-      fetchSellerData(user.uid); // Refresh data after adding
+      setCategory("Clothing");
+      fetchSellerData(user.uid);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -186,23 +159,6 @@ const AddListing: React.FC = () => {
           value={stock}
           onChange={(e) => setStock(e.target.value)}
         />
-<<<<<<< HEAD
-        <Input
-          type="text"
-          placeholder="Size (e.g., M, L, US 9)"
-          value={size}
-          onChange={(e) => setSize(e.target.value)}
-        />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full border rounded-md p-2"
-        >
-          <option value="Outerwear">Outerwear</option>
-          <option value="Footwear">Footwear</option>
-          <option value="Accessories">Accessories</option>
-          <option value="Knitwear">Knitwear</option>
-=======
         <select
           value={category}
           onChange={handleCategoryChange}
@@ -229,7 +185,6 @@ const AddListing: React.FC = () => {
           ) : (
             <option value="">No sizes available</option>
           )}
->>>>>>> e553efe (Initial commit after fixing corruption)
         </select>
         <textarea
           placeholder="Description"

@@ -1,165 +1,107 @@
 // src/pages/user/PurchasedProducts.tsx
-<<<<<<< HEAD
 import React from "react";
 import { useOutletContext } from "react-router-dom";
-
-import React, { useEffect, useState } from "react";
-import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db, auth } from "../firebase"; // Adjust path to your Firebase config
 import { useToast } from "@/hooks/use-toast";
 import "./PurchasedProducts.css"; // Adjust path to your CSS file
 import { Button } from "@/components/ui/button";
 
-
-interface Purchase {
-  id: string;
-  productId: string;
-  title: string;
-  price: number;
-  purchaseDate: string;
-
-}
-
-interface Context {
-  purchases: Purchase[];
-}
-
-const PurchasedProducts: React.FC = () => {
-  const { purchases } = useOutletContext<Context>();
-
-  sellerId?: string;
-}
-
+// Define the Product interface
 interface Product {
   id: string;
   title: string;
   price: number;
-  sellerId: string;
+  imageUrl: string;
+  sellerId?: string; // Optional seller ID
+  purchaseDate?: string; // Optional purchase date
+}
+
+// Define the context type for useOutletContext
+interface Context {
+  purchases: Product[];
 }
 
 const PurchasedProducts: React.FC = () => {
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { purchases } = useOutletContext<Context>(); // Get purchases from parent context
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchPurchases = async () => {
-      if (!auth.currentUser) {
-        toast({ title: "Error", description: "You must be logged in to view purchases.", variant: "destructive" });
-        return;
-      }
+  // If purchases are not provided via context, you could fetch them here
+  React.useEffect(() => {
+    if (!purchases || purchases.length === 0) {
+      const fetchPurchases = async () => {
+        try {
+          const user = auth.currentUser;
+          if (!user) {
+            toast({
+              title: "Error",
+              description: "You must be logged in to view purchases.",
+              variant: "destructive",
+            });
+            return;
+          }
 
-      try {
-        setLoading(true);
-        const purchasesRef = collection(db, `users/${auth.currentUser.uid}/purchases`);
-        const purchasesSnap = await getDocs(purchasesRef);
-        const purchasesData = await Promise.all(
-          purchasesSnap.docs.map(async (purchaseDoc) => {
-            const purchase = { id: purchaseDoc.id, ...purchaseDoc.data() } as Purchase; // Fixed: Use purchaseDoc.data()
-            const productRef = doc(db, "products", purchase.productId);
-            const productSnap = await getDoc(productRef);
-            if (productSnap.exists()) {
-              const productData = productSnap.data() as Product;
-              purchase.sellerId = productData.sellerId;
-            }
-            return purchase;
-          })
-        );
-        console.log("Fetched purchases:", purchasesData); // Debug log
-        setPurchases(purchasesData);
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to load purchases.", variant: "destructive" });
-        console.error("Error fetching purchases:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+          const purchasesQuery = query(
+            collection(db, "purchases"),
+            where("buyerId", "==", user.uid)
+          );
+          const querySnapshot = await getDocs(purchasesQuery);
+          const purchasedItems = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Product[];
 
-    fetchPurchases();
-  }, [toast]);
+          // Assuming purchases are updated in the parent context, otherwise set local state
+          if (purchasedItems.length === 0) {
+            toast({
+              title: "No Purchases",
+              description: "You haven’t made any purchases yet.",
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching purchases:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load purchases. Please try again.",
+            variant: "destructive",
+          });
+        }
+      };
 
- // src/pages/user/PurchasedProducts.tsx (partial update)
-const handleChatWithSeller = async (purchase: Purchase) => {
-  if (!auth.currentUser) {
-    toast({ title: "Error", description: "You must be logged in to chat.", variant: "destructive" });
-    return;
-  }
-  if (!purchase.sellerId) {
-    toast({ title: "Error", description: "Seller information not available.", variant: "destructive" });
-    return;
-  }
-
-  try {
-    const chatId = [auth.currentUser.uid, purchase.sellerId].sort().join("_");
-    const timestamp = new Date().toISOString();
-    const messageData = {
-      senderId: auth.currentUser.uid,
-      receiverId: purchase.sellerId,
-      message: `Hi, I recently purchased "${purchase.title}". Can we discuss this further?`,
-      timestamp,
-      read: false,
-    };
-
-    // Add message to messages subcollection
-    const messageRef = doc(collection(db, `chats/${chatId}/messages`));
-    await setDoc(messageRef, messageData);
-
-    // Create/Update top-level chat document
-    const chatRef = doc(db, "chats", chatId);
-    await setDoc(chatRef, {
-      sellerId: purchase.sellerId,
-      buyerId: auth.currentUser.uid,
-      lastMessage: messageData.message,
-      timestamp: Date.parse(timestamp), // Use numeric timestamp for ordering
-    }, { merge: true }); // Merge to update if exists
-
-    toast({
-      title: "Message Sent",
-      description: "An automated message has been sent to the seller.",
-    });
-  } catch (error) {
-    toast({ title: "Error", description: "Failed to send message.", variant: "destructive" });
-    console.error("Error sending message:", error);
-  }
-};
-
-  if (loading) {
-    return <div className="text-center py-20">Loading purchases...</div>;
-  }
-
+      fetchPurchases();
+    }
+  }, [purchases, toast]);
 
   return (
-    <section className="section">
-      <h2 className="section-title">Purchased Products</h2>
-      {purchases.length > 0 ? (
-        <ul className="items-list">
-          {purchases.map((purchase) => (
-            <li key={purchase.id} className="item">
-              <span className="item-title">{purchase.title}</span>
-
-              <span className="item-price">${purchase.price.toFixed(2)}</span>
-              <span className="item-date">
-                Purchased: {new Date(purchase.purchaseDate).toLocaleDateString()}
-              </span>
-
-              <span className="item-price">₨{purchase.price.toFixed(2)}</span>
-              <span className="item-date">
-                Purchased: {new Date(purchase.purchaseDate).toLocaleDateString()}
-              </span>
-              <Button
-                onClick={() => handleChatWithSeller(purchase)}
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Chat with Seller
-              </Button>
-
-            </li>
+    <div className="purchased-products">
+      <h2 className="text-2xl font-bold mb-6">Your Purchased Products</h2>
+      {purchases && purchases.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {purchases.map((product) => (
+            <div key={product.id} className="product-card bg-white p-4 rounded-lg shadow-md">
+              <img
+                src={product.imageUrl}
+                alt={product.title}
+                className="w-full h-48 object-cover rounded-md mb-4"
+              />
+              <h3 className="text-lg font-semibold">{product.title}</h3>
+              <p className="text-gray-600">Price: ${product.price.toFixed(2)}</p>
+              {product.purchaseDate && (
+                <p className="text-gray-500 text-sm">
+                  Purchased on: {new Date(product.purchaseDate).toLocaleDateString()}
+                </p>
+              )}
+              {product.sellerId && (
+                <p className="text-gray-500 text-sm">Seller ID: {product.sellerId}</p>
+              )}
+              <Button className="mt-4 w-full">View Details</Button>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : (
-        <p className="no-items">No purchases yet.</p>
+        <p className="text-center text-gray-500">No purchased products found.</p>
       )}
-    </section>
+    </div>
   );
 };
 
