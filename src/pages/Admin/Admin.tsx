@@ -16,6 +16,7 @@ const Admin = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [auctions, setAuctions] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [view, setView] = useState<"dashboard" | "consumers" | "sellers" | "products" | "auctions" | "profile">("dashboard");
   const [loading, setLoading] = useState<boolean>(true);
@@ -55,7 +56,7 @@ const Admin = () => {
         }
 
         try {
-          await Promise.all([fetchUsers(), fetchProducts(), fetchAnalytics()]);
+          await Promise.all([fetchUsers(), fetchProducts(), fetchAuctions(), fetchAnalytics()]);
         } catch (err) {
           setError("Failed to load admin data. Please try again.");
           console.error("Error in admin data fetch:", err);
@@ -77,7 +78,6 @@ const Admin = () => {
     try {
       const querySnapshot = await getDocs(collection(db, "users"));
       const userList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      console.log("Fetched users:", userList);
       setUsers(userList);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -89,10 +89,20 @@ const Admin = () => {
     try {
       const querySnapshot = await getDocs(collection(db, "products"));
       const productList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      console.log("Fetched products:", productList);
       setProducts(productList);
     } catch (error) {
       console.error("Error fetching products:", error);
+      throw error;
+    }
+  };
+
+  const fetchAuctions = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "auctions"));
+      const auctionList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setAuctions(auctionList);
+    } catch (error) {
+      console.error("Error fetching auctions:", error);
       throw error;
     }
   };
@@ -103,9 +113,9 @@ const Admin = () => {
       const totalSales = purchasesSnapshot.docs.length;
       const totalRevenue = purchasesSnapshot.docs.reduce((sum, doc) => sum + Number(doc.data().price || 0), 0);
 
-      const auctionsQuery = query(collection(db, "products"), where("isAuction", "==", true));
+      const auctionsQuery = query(collection(db, "auctions"), where("status", "==", "upcoming"));
       const auctionsSnapshot = await getDocs(auctionsQuery);
-      const activeAuctions = auctionsSnapshot.docs.filter((doc) => new Date(doc.data().endsAt) > new Date()).length;
+      const activeAuctions = auctionsSnapshot.docs.length;
 
       const analyticsData = [
         { name: "Total Sales", count: totalSales },
@@ -113,7 +123,6 @@ const Admin = () => {
         { name: "Active Auctions", count: activeAuctions },
         { name: "Registered Users", count: users.length },
       ];
-      console.log("Analytics data:", analyticsData);
       setAnalytics(analyticsData);
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -152,6 +161,19 @@ const Admin = () => {
       } catch (error) {
         console.error("Error deleting product:", error);
         toast({ title: "Error", description: "Failed to delete product.", variant: "destructive" });
+      }
+    }
+  };
+
+  const handleDeleteAuction = async (auctionId: string) => {
+    if (window.confirm("Are you sure you want to delete this auction?")) {
+      try {
+        await deleteDoc(doc(db, "auctions", auctionId));
+        toast({ title: "Auction Deleted", description: "The auction has been deleted successfully." });
+        fetchAuctions();
+      } catch (error) {
+        console.error("Error deleting auction:", error);
+        toast({ title: "Error", description: "Failed to delete auction.", variant: "destructive" });
       }
     }
   };
@@ -411,51 +433,34 @@ const Admin = () => {
                   Set Auction
                 </Button>
               </div>
-              {products.filter((product) => product.isAuction).length > 0 ? (
+              {auctions.length > 0 ? (
                 <table>
                   <thead>
                     <tr>
                       <th>Title</th>
-                      <th>Seller</th>
-                      <th>Current Bid</th>
-                      <th>Ends At</th>
+                      <th>Starting Price</th>
+                      <th>End Time</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {products
-                      .filter((product) => product.isAuction)
-                      .map((product) => (
-                        <tr key={product.id}>
-                          <td>{product.title}</td>
-                          <td>{product.seller}</td>
-                          <td>
-                            $
-                            {typeof product.currentBid === "number"
-                              ? product.currentBid.toFixed(2)
-                              : product.currentBid || "N/A"}
-                          </td>
-                          <td>
-                            {product.endsAt
-                              ? new Date(product.endsAt).toLocaleString()
-                              : "N/A"}
-                          </td>
-                          <td>
-                            {product.endsAt && new Date(product.endsAt) > new Date()
-                              ? "Active"
-                              : "Ended"}
-                          </td>
-                          <td>
-                            <Button
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="delete-btn bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                    {auctions.map((auction) => (
+                      <tr key={auction.id}>
+                        <td>{auction.title}</td>
+                        <td>${typeof auction.price === "number" ? auction.price.toFixed(2) : auction.price}</td>
+                        <td>{new Date(auction.endTime).toLocaleString()}</td>
+                        <td>{auction.status}</td>
+                        <td>
+                          <Button
+                            onClick={() => handleDeleteAuction(auction.id)}
+                            className="delete-btn bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               ) : (
