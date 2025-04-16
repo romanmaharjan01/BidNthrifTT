@@ -168,7 +168,7 @@ const SetAuction = () => {
 
             <div className="space-y-2">
               <label className="block text-gray-700 mb-1 font-medium">
-                Starting Price ($)
+                Starting Price (Npr)
               </label>
               <input
                 type="number"
