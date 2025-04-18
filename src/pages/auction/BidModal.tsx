@@ -51,9 +51,9 @@ const BidModal = ({ auction, onClose, onPlaceBid }: BidModalProps) => {
                   value={bid}
                   onChange={(e) => setBid(parseFloat(e.target.value))}
                   min={auction.price + 1}
-                  step="0.01"
+                  step="10"
                   className="w-full"
-                  placeholder={`Minimum bid: $${auction.price + 1}`}
+                  placeholder={`Minimum bid: Npr${auction.price + 1}`}
                 />
               </div>
             </CardContent>
