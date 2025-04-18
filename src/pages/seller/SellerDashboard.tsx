@@ -51,7 +51,7 @@ const SellerDashboard: React.FC = () => {
         return;
       }
       setUserId(user.uid);
-      setSellerImage(user.photoURL || "https://via.placeholder.com/100");
+      setSellerImage(user.photoURL || "https://placehold.co/150x150");
       await fetchSellerData(user.uid);
     });
 
@@ -63,18 +63,28 @@ const SellerDashboard: React.FC = () => {
 
     setIsLoadingData(true);
     try {
+      console.log("Fetching seller data for sellerId:", sellerId);
       const [productsSnapshot, ordersSnapshot, completedOrdersSnapshot] = await Promise.all([
         getDocs(query(collection(db, "products"), where("sellerId", "==", sellerId))),
         getDocs(query(collection(db, "orders"), where("sellerId", "==", sellerId), where("status", "==", "pending"))),
-        getDocs(query(collection(db, "orders"), where("sellerId", "==", sellerId), where("status", "==", "completed"))),
+        getDocs(query(collection(db, "products"), where("sellerId", "==", sellerId), where("status", "==", "completed"))),
       ]);
 
       const productsData: Product[] = productsSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
-      } as Product));
+        title: doc.data().title || "",
+        description: doc.data().description || "",
+        imageUrl: doc.data().imageUrl || "https://placehold.co/150x150",
+        category: doc.data().category || "",
+        size: doc.data().size || "",
+        sellerId: doc.data().sellerId || "",
+        sellerEmail: doc.data().sellerEmail || "",
+        createdAt: doc.data().createdAt || null,
+        price: Number(doc.data().price) || 0,
+        stock: Number(doc.data().stock) || 0,
+      }));
       const pendingCount = ordersSnapshot.docs.length;
-      const totalSales = completedOrdersSnapshot.docs.reduce((total, order) => total + (order.data().total || 0), 0);
+      const totalSales = completedOrdersSnapshot.docs.reduce((total, order) => total + (Number(order.data().total) || 0), 0);
 
       setProducts(productsData);
       setStats({
@@ -82,12 +92,18 @@ const SellerDashboard: React.FC = () => {
         totalSales,
         pendingShipments: pendingCount,
       });
-    } catch (error) {
-      console.error("Error fetching seller data:", error);
+    } catch (error: any) {
+      console.error("Error fetching seller data:", error.message, error.code);
       toast({
         title: "Error",
-        description: "Failed to load your seller data",
+        description: "Failed to load your seller data: " + error.message,
         variant: "destructive",
+      });
+      setProducts([]);
+      setStats({
+        totalListings: 0,
+        totalSales: 0,
+        pendingShipments: 0,
       });
     } finally {
       setIsLoadingData(false);
