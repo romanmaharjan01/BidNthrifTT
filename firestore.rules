@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /products/{productId} {
+      // Allow sellers to create products
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+      // Allow admins to read and write
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      // Allow consumers to read approved products
+      allow read: if request.auth != null && resource.data.status == "approved";
+      // Allow sellers to read their own products
+      allow read: if request.auth != null && resource.data.sellerId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      // Allow admins to read and write
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      // Allow users to read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
