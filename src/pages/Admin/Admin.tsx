@@ -1,31 +1,38 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import { collection, getDocs, updateDoc, doc, deleteDoc, query, where, getDoc, setDoc } from "firebase/firestore";
+import { collection, onSnapshot, updateDoc, doc, deleteDoc, query, where, getDoc, setDoc } from "firebase/firestore";
 import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts"; // Ensure CartesianGrid is imported
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Loader2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { motion } from "framer-motion";
+import AuctionOversight from "./AuctionOversight";
 import "./AdminPanel.css";
+import * as Dialog from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 
 const Admin = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<any[]>([]);
   const [auctions, setAuctions] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
-  const [view, setView] = useState<"dashboard" | "consumers" | "sellers" | "products" | "auctions" | "profile">("dashboard");
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
+  const [view, setView] = useState<"dashboard" | "consumers" | "sellers" | "products" | "pending" | "auctions" | "profile">("dashboard");
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [profileImage, setProfileImage] = useState<string>("");
   const [newImageUrl, setNewImageUrl] = useState<string>("");
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const [userToBan, setUserToBan] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -55,14 +62,17 @@ const Admin = () => {
           setProfileImage("https://via.placeholder.com/150");
         }
 
-        try {
-          await Promise.all([fetchUsers(), fetchProducts(), fetchAuctions(), fetchAnalytics()]);
-        } catch (err) {
-          setError("Failed to load admin data. Please try again.");
-          console.error("Error in admin data fetch:", err);
-        } finally {
-          setLoading(false);
-        }
+        const unsubscribeUsers = fetchUsers();
+        const unsubscribeProducts = fetchProducts();
+        const unsubscribePendingProducts = fetchPendingProducts();
+        const unsubscribeAuctions = fetchAuctions();
+
+        return () => {
+          unsubscribeUsers();
+          unsubscribeProducts();
+          unsubscribePendingProducts();
+          unsubscribeAuctions();
+        };
       } else {
         navigate("/");
       }
@@ -74,67 +84,159 @@ const Admin = () => {
     return email ? email.split("@")[0].replace(/[\._-]/g, " ") : "Admin";
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const userList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setUsers(userList);
+      const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+        const userList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setUsers(userList);
+        console.log("Fetched users:", userList);
+      }, (error) => {
+        console.error("Error fetching users:", error);
+        setError("Failed to fetch users.");
+      });
+      return unsubscribe;
     } catch (error) {
-      console.error("Error fetching users:", error);
-      throw error;
+      console.error("Error setting up users listener:", error);
+      setError("Failed to fetch users.");
+      return () => {};
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const productList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setProducts(productList);
+      const unsubscribe = onSnapshot(
+        query(collection(db, "products"), where("status", "==", "approved")),
+        (snapshot) => {
+          const productList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          setProducts(productList);
+        },
+        (error) => {
+          console.error("Error fetching products:", error);
+          setError("Failed to fetch products.");
+        }
+      );
+      return unsubscribe;
     } catch (error) {
-      console.error("Error fetching products:", error);
-      throw error;
+      console.error("Error setting up products listener:", error);
+      setError("Failed to fetch products.");
+      return () => {};
     }
   };
 
-  const fetchAuctions = async () => {
+  const fetchPendingProducts = () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "auctions"));
-      const auctionList = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setAuctions(auctionList);
+      const unsubscribe = onSnapshot(
+        query(collection(db, "products"), where("status", "==", "pending")),
+        (snapshot) => {
+          const pendingList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          setPendingProducts(pendingList);
+        },
+        (error) => {
+          console.error("Error fetching pending products:", error);
+          setError("Failed to fetch pending products.");
+        }
+      );
+      return unsubscribe;
     } catch (error) {
-      console.error("Error fetching auctions:", error);
-      throw error;
+      console.error("Error setting up pending products listener:", error);
+      setError("Failed to fetch pending products.");
+      return () => {};
     }
   };
 
-  const fetchAnalytics = async () => {
+  const fetchAuctions = () => {
     try {
-      const purchasesSnapshot = await getDocs(collection(db, "purchases"));
-      const totalSales = purchasesSnapshot.docs.length;
-      const totalRevenue = purchasesSnapshot.docs.reduce((sum, doc) => sum + Number(doc.data().price || 0), 0);
-
-      const auctionsQuery = query(collection(db, "auctions"), where("status", "==", "upcoming"));
-      const auctionsSnapshot = await getDocs(auctionsQuery);
-      const activeAuctions = auctionsSnapshot.docs.length;
-
-      const analyticsData = [
-        { name: "Total Sales", count: totalSales },
-        { name: "Total Revenue", count: totalRevenue },
-        { name: "Active Auctions", count: activeAuctions },
-        { name: "Registered Users", count: users.length },
-      ];
-      setAnalytics(analyticsData);
+      const unsubscribe = onSnapshot(collection(db, "auctions"), (snapshot) => {
+        const auctionList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setAuctions(auctionList);
+      }, (error) => {
+        console.error("Error fetching auctions:", error);
+        setError("Failed to fetch auctions.");
+      });
+      return unsubscribe;
     } catch (error) {
-      console.error("Error fetching analytics:", error);
-      throw error;
+      console.error("Error setting up auctions listener:", error);
+      setError("Failed to fetch auctions.");
+      return () => {};
     }
   };
+
+  useEffect(() => {
+    const fetchAnalytics = () => {
+      try {
+        setIsAnalyticsLoading(true);
+        const unsubscribePurchases = onSnapshot(collection(db, "purchases"), (snapshot) => {
+          const totalSales = snapshot.docs.length;
+          const totalRevenue = snapshot.docs.reduce((sum, doc) => {
+            const price = Number(doc.data().price || 0);
+            if (isNaN(price)) {
+              console.warn(`Invalid price in purchase document ${doc.id}:`, doc.data().price);
+              return sum;
+            }
+            return sum + price;
+          }, 0);
+          console.log("Purchases snapshot:", { totalSales, totalRevenue });
+
+          const unsubscribeAuctions = onSnapshot(
+            query(collection(db, "auctions"), where("status", "==", "upcoming")),
+            (auctionsSnapshot) => {
+              const activeAuctions = auctionsSnapshot.docs.length;
+              console.log("Auctions snapshot:", { activeAuctions });
+
+              const analyticsData = [
+                { name: "Total Sales", count: totalSales },
+                { name: "Total Revenue", count: totalRevenue },
+                { name: "Active Auctions", count: activeAuctions },
+                { name: "Registered Users", count: users.length },
+              ];
+              console.log("Analytics data:", analyticsData);
+              setAnalytics(analyticsData);
+              setIsAnalyticsLoading(false);
+            },
+            (error) => {
+              console.error("Error fetching auctions for analytics:", error);
+              setError("Failed to fetch auctions for analytics.");
+              setIsAnalyticsLoading(false);
+            }
+          );
+
+          return () => unsubscribeAuctions();
+        }, (error) => {
+          console.error("Error fetching purchases for analytics:", error);
+          setError("Failed to fetch purchases for analytics.");
+          setIsAnalyticsLoading(false);
+        });
+
+        return () => unsubscribePurchases();
+      } catch (error) {
+        console.error("Error setting up analytics listener:", error);
+        setError("Failed to fetch analytics.");
+        setIsAnalyticsLoading(false);
+        return () => {};
+      }
+    };
+
+    const unsubscribeAnalytics = fetchAnalytics();
+    return () => unsubscribeAnalytics();
+  }, [users]);
 
   const handleBanUser = async (userId: string) => {
+    setUserToBan(userId);
+    setBanDialogOpen(true);
+  };
+
+  const confirmBanUser = async () => {
+    if (!userToBan || !banReason) return;
+
     try {
-      await updateDoc(doc(db, "users", userId), { banned: true });
+      await updateDoc(doc(db, "users", userToBan), {
+        banned: true,
+        banReason: banReason,
+      });
       toast({ title: "User Banned", description: "The user has been banned successfully." });
-      fetchUsers();
+      setBanDialogOpen(false);
+      setBanReason("");
+      setUserToBan(null);
     } catch (error) {
       console.error("Error banning user:", error);
       toast({ title: "Error", description: "Failed to ban user.", variant: "destructive" });
@@ -143,12 +245,34 @@ const Admin = () => {
 
   const handleUnbanUser = async (userId: string) => {
     try {
-      await updateDoc(doc(db, "users", userId), { banned: false });
+      await updateDoc(doc(db, "users", userId), {
+        banned: false,
+        banReason: "",
+      });
       toast({ title: "User Unbanned", description: "The user has been unbanned successfully." });
-      fetchUsers();
     } catch (error) {
       console.error("Error unbanning user:", error);
       toast({ title: "Error", description: "Failed to unban user.", variant: "destructive" });
+    }
+  };
+
+  const handleApproveProduct = async (productId: string) => {
+    try {
+      await updateDoc(doc(db, "products", productId), { status: "approved" });
+      toast({ title: "Product Approved", description: "The product has been approved and is now live." });
+    } catch (error) {
+      console.error("Error approving product:", error);
+      toast({ title: "Error", description: "Failed to approve product.", variant: "destructive" });
+    }
+  };
+
+  const handleRejectProduct = async (productId: string) => {
+    try {
+      await updateDoc(doc(db, "products", productId), { status: "rejected" });
+      toast({ title: "Product Rejected", description: "The product has been rejected." });
+    } catch (error) {
+      console.error("Error rejecting product:", error);
+      toast({ title: "Error", description: "Failed to reject product.", variant: "destructive" });
     }
   };
 
@@ -157,7 +281,6 @@ const Admin = () => {
       try {
         await deleteDoc(doc(db, "products", productId));
         toast({ title: "Product Deleted", description: "The product has been deleted successfully." });
-        fetchProducts();
       } catch (error) {
         console.error("Error deleting product:", error);
         toast({ title: "Error", description: "Failed to delete product.", variant: "destructive" });
@@ -170,7 +293,6 @@ const Admin = () => {
       try {
         await deleteDoc(doc(db, "auctions", auctionId));
         toast({ title: "Auction Deleted", description: "The auction has been deleted successfully." });
-        fetchAuctions();
       } catch (error) {
         console.error("Error deleting auction:", error);
         toast({ title: "Error", description: "Failed to delete auction.", variant: "destructive" });
@@ -185,7 +307,6 @@ const Admin = () => {
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
-    setLoading(true);
 
     try {
       const imageURL = newImageUrl || profileImage;
@@ -198,7 +319,6 @@ const Admin = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsEditing(false);
-      setLoading(false);
     }
   };
 
@@ -215,16 +335,7 @@ const Admin = () => {
   if (isAdmin === null) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
-        <span className="ml-4 text-white">Loading admin data...</span>
+        <span className="ml-4 text-white">Checking admin access...</span>
       </div>
     );
   }
@@ -251,7 +362,13 @@ const Admin = () => {
             <li onClick={() => setView("dashboard")}>Dashboard</li>
             <li onClick={() => setView("consumers")}>Consumer Management</li>
             <li onClick={() => setView("sellers")}>Seller Management</li>
-            <li onClick={() => setView("products")}>Product Management</li>
+            <li onClick={() => setView("products")} className="relative">
+              Product Management
+              {pendingProducts.length > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-full"></span>
+              )}
+            </li>
+            <li onClick={() => setView("pending")}>Pending Listings</li>
             <li onClick={() => setView("auctions")}>Auction Oversight</li>
             <li onClick={() => setView("profile")}>Profile</li>
           </ul>
@@ -260,10 +377,12 @@ const Admin = () => {
           {view === "dashboard" && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <h1>Dashboard</h1>
-              {analytics.length > 0 ? (
+              {isAnalyticsLoading ? (
+                <p className="no-data">Loading analytics...</p>
+              ) : analytics.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={analytics}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" /> {/* Fixed typo: Changed "Cartesian dentesGrid" to "CartesianGrid" */}
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip formatter={(value, name) => (name === "Total Revenue" ? `$${value}` : value)} />
@@ -395,7 +514,7 @@ const Admin = () => {
                     {products.map((product) => (
                       <tr key={product.id}>
                         <td>{product.title}</td>
-                        <td>{product.seller}</td>
+                        <td>{product.sellerEmail}</td>
                         <td>
                           $
                           {typeof product.price === "number"
@@ -417,46 +536,51 @@ const Admin = () => {
                   </tbody>
                 </table>
               ) : (
-                <p className="no-data">No products found.</p>
+                <p className="no-data">No approved products found.</p>
               )}
             </motion.div>
           )}
 
-          {view === "auctions" && (
+          {view === "pending" && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <h1>Auction Oversight</h1>
-              <div className="flex justify-end mb-4">
-                <Button
-                  onClick={() => navigate("/setauction")}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition-all duration-300"
-                >
-                  Set Auction
-                </Button>
-              </div>
-              {auctions.length > 0 ? (
+              <h1>Pending Listings</h1>
+              {pendingProducts.length > 0 ? (
                 <table>
                   <thead>
                     <tr>
                       <th>Title</th>
-                      <th>Starting Price</th>
-                      <th>End Time</th>
-                      <th>Status</th>
+                      <th>Seller</th>
+                      <th>Price</th>
+                      <th>Stock</th>
+                      <th>Category</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {auctions.map((auction) => (
-                      <tr key={auction.id}>
-                        <td>{auction.title}</td>
-                        <td>${typeof auction.price === "number" ? auction.price.toFixed(2) : auction.price}</td>
-                        <td>{new Date(auction.endTime).toLocaleString()}</td>
-                        <td>{auction.status}</td>
+                    {pendingProducts.map((product) => (
+                      <tr key={product.id}>
+                        <td>{product.title}</td>
+                        <td>{product.sellerEmail}</td>
+                        <td>
+                          $
+                          {typeof product.price === "number"
+                            ? product.price.toFixed(2)
+                            : product.price}
+                        </td>
+                        <td>{product.stock}</td>
+                        <td>{product.category}</td>
                         <td>
                           <Button
-                            onClick={() => handleDeleteAuction(auction.id)}
-                            className="delete-btn bg-red-600 hover:bg-red-700"
+                            onClick={() => handleApproveProduct(product.id)}
+                            className="approve-btn bg-green-600 hover:bg-green-700 mr-2"
                           >
-                            Delete
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleRejectProduct(product.id)}
+                            className="reject-btn bg-red-600 hover:bg-red-700"
+                          >
+                            Reject
                           </Button>
                         </td>
                       </tr>
@@ -464,8 +588,19 @@ const Admin = () => {
                   </tbody>
                 </table>
               ) : (
-                <p className="no-data">No auctions found.</p>
+                <p className="no-data">No pending listings found.</p>
               )}
+            </motion.div>
+          )}
+
+          {view === "auctions" && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <AuctionOversight
+                auctions={auctions}
+                users={users}
+                onDelete={handleDeleteAuction}
+                fetchAuctions={fetchAuctions}
+              />
             </motion.div>
           )}
 
@@ -495,8 +630,8 @@ const Admin = () => {
                         <Pencil className="w-4 h-4" />
                       </Button>
                     ) : (
-                      <Button onClick={handleSave} disabled={loading} className="save-btn">
-                        {loading ? "Saving..." : "Save"}
+                      <Button onClick={handleSave} className="save-btn">
+                        Save
                       </Button>
                     )}
                   </div>
@@ -515,7 +650,7 @@ const Admin = () => {
                       />
                     </>
                   )}
-                  <Button onClick={handleLogout} className="logout-btn" disabled={loading}>
+                  <Button onClick={handleLogout} className="logout-btn">
                     Logout
                   </Button>
                 </div>
@@ -524,6 +659,48 @@ const Admin = () => {
           )}
         </main>
       </div>
+
+      <Dialog.Root open={banDialogOpen} onOpenChange={setBanDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <Dialog.Title className="text-lg font-semibold">Ban User</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-gray-600">
+              Please provide a reason for banning this user.
+            </Dialog.Description>
+            <div className="mt-4">
+              <Label htmlFor="banReason">Reason for Ban</Label>
+              <Input
+                id="banReason"
+                type="text"
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                placeholder="Enter ban reason"
+                className="mt-1"
+              />
+            </div>
+            <div className="mt-6 flex justify-end space-x-2">
+              <Dialog.Close asChild>
+                <Button variant="outline" onClick={() => setBanReason("")}>
+                  Cancel
+                </Button>
+              </Dialog.Close>
+              <Button
+                onClick={confirmBanUser}
+                disabled={!banReason}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Confirm Ban
+              </Button>
+            </div>
+            <Dialog.Close asChild>
+              <button className="absolute top-2 right-2 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </motion.div>
   );
 };
