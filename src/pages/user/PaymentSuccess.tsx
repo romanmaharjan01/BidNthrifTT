@@ -1,39 +1,49 @@
-// src/pages/user/PaymentCancel.tsx
-import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
-const PaymentCancel = () => {
-  const navigate = useNavigate();
+const PaymentSuccess: React.FC = () => {
+  const [status, setStatus] = useState<string>('Verifying payment...');
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const verifyPayment = async () => {
+      const pidx = searchParams.get('pidx');
+      if (!pidx) {
+        setStatus('Payment verification failed: Missing pidx');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/verify-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ pidx }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setStatus('Payment successful! Thank you for your purchase.');
+          // Optionally save to Firestore here
+        } else {
+          setStatus('Payment failed or not completed.');
+        }
+      } catch (error) {
+        setStatus('Error verifying payment. Please contact support.');
+      }
+    };
+
+    verifyPayment();
+  }, [searchParams]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 py-12 flex items-center justify-center">
-        <div className="max-w-lg w-full p-6 bg-white shadow-lg rounded-lg text-center">
-          <h2 className="text-2xl font-bold mb-4">Payment Canceled</h2>
-          <p className="text-gray-600 mb-6">Your payment was canceled. You can try again or continue shopping.</p>
-          <div className="flex gap-4 justify-center">
-            <Button
-              onClick={() => navigate("/cart")}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              Try Again
-            </Button>
-            <Button
-              onClick={() => navigate("/shop")}
-              variant="outline"
-              className="border-gray-300"
-            >
-              Continue Shopping
-            </Button>
-          </div>
-        </div>
-      </main>
-      <Footer />
+    <div>
+      <h2>Payment Status</h2>
+      <p>{status}</p>
     </div>
   );
 };
 
-export default PaymentCancel;
+export default PaymentSuccess;
