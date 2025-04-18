@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, getDocs, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { db, auth } from "../firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,43 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import BidModal from "./BidModal";
 
+// Define the Auction interface
+interface Auction {
+  id: string;
+  title: string;
+  price: number;
+  imageUrl: string;
+  endTime: string;
+  status: string;
+  unsubscribe?: () => void; // For the onSnapshot unsubscribe function
+}
+
 const Auctions = () => {
-  const [auctions, setAuctions] = useState([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedAuction, setSelectedAuction] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
 
   useEffect(() => {
+    const ensureAuthenticated = () => {
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          try {
+            await signInAnonymously(auth);
+            console.log("Signed in anonymously");
+            fetchAuctions();
+          } catch (err) {
+            console.error("Anonymous sign-in failed", err);
+            setError("Authentication failed. Please try again.");
+            setLoading(false);
+          }
+        } else {
+          console.log("User signed in:", user.uid);
+          fetchAuctions();
+        }
+      });
+    };
+
     const fetchAuctions = async () => {
       try {
         setLoading(true);
@@ -26,8 +57,26 @@ const Auctions = () => {
         const auctionList = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
-        setAuctions(auctionList);
+        })) as Auction[];
+
+        // Set up real-time listeners for each auction's bids
+        const auctionListWithListeners = auctionList.map((auction) => {
+          const bidsQuery = query(
+            collection(db, "auctions", auction.id, "bids"),
+            orderBy("timestamp", "desc")
+          );
+          const unsubscribe = onSnapshot(bidsQuery, (snapshot) => {
+            const highestBid = snapshot.docs[0]?.data()?.amount || auction.price;
+            setAuctions((prev) =>
+              prev.map((item) =>
+                item.id === auction.id ? { ...item, price: highestBid } : item
+              )
+            );
+          });
+          return { ...auction, unsubscribe };
+        });
+
+        setAuctions(auctionListWithListeners);
       } catch (err) {
         setError("Failed to fetch auctions. Please try again later.");
         console.error(err);
@@ -36,26 +85,42 @@ const Auctions = () => {
       }
     };
 
-    fetchAuctions();
+    ensureAuthenticated();
+
+    return () => {
+      auctions.forEach((auction) => {
+        if (auction.unsubscribe) auction.unsubscribe();
+      });
+    };
   }, []);
 
   const handlePlaceBid = async (id: string, newBid: number, currentBid: number) => {
-    if (newBid > currentBid) {
-      try {
-        const auctionRef = doc(db, "auctions", id);
-        await updateDoc(auctionRef, { price: newBid });
-        setAuctions((prev) =>
-          prev.map((item) =>
-            item.id === id ? { ...item, price: newBid } : item
-          )
-        );
-        setSelectedAuction(null);
-      } catch (err) {
-        setError("Failed to place bid. Please try again.");
-        console.error(err);
+    if (newBid <= currentBid) {
+      setError("Please enter a bid higher than the current bid.");
+      return;
+    }
+
+    try {
+      if (!auth.currentUser) {
+        setError("Please sign in to place a bid.");
+        return;
       }
-    } else {
-      alert("Please enter a bid higher than the current bid.");
+
+      const bidData = {
+        userId: auth.currentUser.uid,
+        amount: newBid,
+        timestamp: new Date().toISOString(),
+      };
+
+      await addDoc(collection(db, "auctions", id, "bids"), bidData);
+      setSelectedAuction(null);
+    } catch (err: any) {
+      console.error("Error placing bid:", err);
+      if (err.code === "permission-denied") {
+        setError("Cannot place bid. The auction may have ended or you lack permission.");
+      } else {
+        setError("Failed to place bid: " + err.message);
+      }
     }
   };
 
