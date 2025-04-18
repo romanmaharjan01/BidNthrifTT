@@ -1,14 +1,13 @@
-// src/pages/user/UserDetails.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, NavLink, Outlet, useLocation } from "react-router-dom";
-import { auth, db } from "../firebase"; // Adjust path as needed
+import { auth, db } from "../firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import Footer from "@/components/Footer";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import "./UserDetails.css";
-import ProfileSection from "./Profile"; // Import the ProfileSection component
+import ProfileSection from "./Profile";
 
 interface Purchase {
   id: string;
@@ -64,7 +63,6 @@ const UserDetails: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Redirect to /user-details/profile if the base route is accessed
     if (location.pathname === "/user-details" || location.pathname === "/user-details/") {
       navigate("/user-details/profile", { replace: true });
     }
@@ -72,6 +70,8 @@ const UserDetails: React.FC = () => {
 
   const fetchUserData = async (uid: string) => {
     try {
+      console.log("Fetching data for UID:", uid);
+      // Fetch user profile
       const userDocRef = doc(db, "users", uid);
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
@@ -79,17 +79,18 @@ const UserDetails: React.FC = () => {
         setProfile({
           fullName: userData.fullName || auth.currentUser?.displayName || "Unknown",
           email: auth.currentUser?.email || "",
-          profileImage: userData.profileImage || auth.currentUser?.photoURL || "https://via.placeholder.com/150",
+          profileImage: userData.profileImage || auth.currentUser?.photoURL || "https://placehold.co/150x150",
         });
       } else {
         setProfile({
           fullName: auth.currentUser?.displayName || "Unknown",
           email: auth.currentUser?.email || "",
-          profileImage: "https://via.placeholder.com/150",
+          profileImage: "https://placehold.co/150x150",
         });
       }
 
-      const purchasesQuery = query(collection(db, "purchases"), where("userId", "==", uid));
+      // Fetch purchases
+      const purchasesQuery = query(collection(db, "purchases"), where("buyerId", "==", uid));
       const purchasesSnapshot = await getDocs(purchasesQuery);
       const purchasesData = purchasesSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -100,6 +101,7 @@ const UserDetails: React.FC = () => {
       }));
       setPurchases(purchasesData);
 
+      // Fetch cart items
       const cartQuery = query(collection(db, "cart"), where("userId", "==", uid));
       const cartSnapshot = await getDocs(cartQuery);
       const cartData = cartSnapshot.docs.map((doc) => ({
@@ -111,6 +113,7 @@ const UserDetails: React.FC = () => {
       }));
       setCartItems(cartData);
 
+      // Fetch favorites
       const savedFavorites = localStorage.getItem("favorites");
       if (savedFavorites) {
         const favoriteIds = JSON.parse(savedFavorites);
@@ -123,8 +126,16 @@ const UserDetails: React.FC = () => {
         }
         setFavorites(favoritesData);
       }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
+    } catch (error: any) {
+      console.error("Error fetching user data:", error.message, error.code);
+      setProfile({
+        fullName: auth.currentUser?.displayName || "Unknown",
+        email: auth.currentUser?.email || "",
+        profileImage: "https://placehold.co/150x150",
+      });
+      setPurchases([]);
+      setCartItems([]);
+      setFavorites([]);
     }
   };
 
@@ -157,7 +168,7 @@ const UserDetails: React.FC = () => {
           <div className="sidebar-header">
             <h2 className="sidebar-title">User Details</h2>
             <img
-              src={profile?.profileImage || "https://via.placeholder.com/100"}
+              src={profile?.profileImage || "https://placehold.co/150x150"}
               alt="User Profile"
               className="seller-image"
             />
