@@ -4,7 +4,7 @@ import { db } from "./firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { FaHeart, FaRegHeart, FaSearch, FaTimes } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import "./Shop.css";
@@ -31,6 +31,7 @@ const Shop = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const navigate = useNavigate(); // Add useNavigate hook
 
   const allCategories = [
     "Clothing",
@@ -182,55 +183,32 @@ const Shop = () => {
           <div className="products-grid">
             {filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
-                <Link
-                  to={`/product-detail/${product.id}`}
-                  key={product.id}
-                  className="product-card-link"
-                >
-                  <div className="product-card">
+                <div key={product.id} className="product-card">
+                  <Link
+                    to={`/product-detail/${product.id}`}
+                    className="product-card-link"
+                  >
                     <div className="product-image-container">
                       <img
                         src={product.imageUrl}
                         alt={product.title}
                         className="product-image"
                       />
-                      <button
-                        className="favorite-button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleFavorite(product.id);
-                        }}
-                        aria-label={
-                          favorites.includes(product.id)
-                            ? "Remove from favorites"
-                            : "Add to favorites"
-                        }
-                      >
-                        {favorites.includes(product.id) ? (
-                          <FaHeart className="heart-filled" />
-                        ) : (
-                          <FaRegHeart />
-                        )}
-                      </button>
                     </div>
-
                     <div className="product-info">
                       <h3 className="product-title">{product.title}</h3>
-
                       <div className="product-meta">
                         <span className="product-category">
                           {product.category}
                         </span>
                         <span className="product-size">{product.size}</span>
                       </div>
-
                       <p className="product-price">
                         $
                         {typeof product.price === "number"
                           ? product.price.toFixed(2)
                           : product.price}
                       </p>
-
                       <div className="product-status">
                         <span
                           className={`product-stock ${
@@ -241,7 +219,6 @@ const Shop = () => {
                             ? `In Stock (${product.stock})`
                             : "Out of Stock"}
                         </span>
-
                         {product.isAuction && (
                           <span
                             className={`product-auction ${
@@ -262,21 +239,34 @@ const Shop = () => {
                           </span>
                         )}
                       </div>
-
-                      {!product.isAuction && product.stock > 0 && (
-                        <div className="product-actions">
-                          <Link
-                            to={`/payment/${product.id}`}
-                            className="buy-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button className="buy-button">Buy Now</Button>
-                          </Link>
-                        </div>
-                      )}
                     </div>
+                  </Link>
+                  <div className="product-actions">
+                    <button
+                      className="favorite-button"
+                      onClick={() => toggleFavorite(product.id)}
+                      aria-label={
+                        favorites.includes(product.id)
+                          ? "Remove from favorites"
+                          : "Add to favorites"
+                      }
+                    >
+                      {favorites.includes(product.id) ? (
+                        <FaHeart className="heart-filled" />
+                      ) : (
+                        <FaRegHeart />
+                      )}
+                    </button>
+                    {!product.isAuction && product.stock > 0 && (
+                      <Button
+                        className="buy-button"
+                        onClick={() => navigate(`/payment/${product.id}`)}
+                      >
+                        Buy Now
+                      </Button>
+                    )}
                   </div>
-                </Link>
+                </div>
               ))
             ) : (
               <div className="no-products">
