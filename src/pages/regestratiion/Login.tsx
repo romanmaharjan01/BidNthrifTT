@@ -24,23 +24,38 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [banMessage, setBanMessage] = useState<string | null>(null); // State for ban message
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setBanMessage(null); // Reset ban message on new login attempt
+
     try {
+      // Sign in the user
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
+      // Fetch user data to check ban status
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
-      
+
       if (!userDoc.exists()) {
         throw new Error("User data not found in database.");
       }
 
       const userData = userDoc.data();
+
+      // Check if the user is banned
+      if (userData.banned) {
+        setBanMessage(userData.banReason || "You have been banned from BidNThrift.");
+        await auth.signOut(); // Sign out the user if banned
+        setIsLoading(false);
+        return;
+      }
+
       const userRole = userData.role; // Assuming 'role' is a field in your user document
 
       toast({ title: "Success", description: "Logged in successfully!" });
@@ -61,10 +76,12 @@ const Login = () => {
           navigate("/");
           break;
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      if (!banMessage) {
+        setIsLoading(false); // Only set loading to false if not banned
+      }
     }
   };
 
@@ -74,7 +91,11 @@ const Login = () => {
         <div className="animate-scroll flex flex-col">
           {thriftImages.map((src, index) => (
             <div key={index} className="image-container">
-              <img src={src} alt={`Thrift Ad ${index + 1}`} className="w-full h-48 object-cover mb-4 rounded-lg shadow-md" />
+              <img
+                src={src}
+                alt={`Thrift Ad ${index + 1}`}
+                className="w-full h-48 object-cover mb-4 rounded-lg shadow-md"
+              />
             </div>
           ))}
         </div>
@@ -82,16 +103,37 @@ const Login = () => {
       <div className="w-full md:w-2/3 flex justify-center items-center p-4">
         <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
           <h2 className="text-2xl font-bold text-center mb-6 text-primary">Welcome Back</h2>
+          {banMessage && (
+            <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
+              <p>{banMessage}</p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="button" className="absolute right-3 top-1/2 transform -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
@@ -101,10 +143,15 @@ const Login = () => {
             </Button>
           </form>
           <div className="mt-5 text-center">
-            <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">Forgot Password?</Link>
+            <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
+              Forgot Password?
+            </Link>
           </div>
           <div className="mt-4 text-center text-gray-600">
-            Don't have an account? <Link to="/register" className="text-blue-600 font-medium hover:underline">Sign up</Link>
+            Don't have an account?{" "}
+            <Link to="/register" className="text-blue-600 font-medium hover:underline">
+              Sign up
+            </Link>
           </div>
         </div>
       </div>
