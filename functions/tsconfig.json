@@ -1,17 +1,21 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "esModuleInterop": true,
-    "moduleResolution": "nodenext",
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "outDir": "lib",
-    "sourceMap": true,
-    "strict": true,
-    "target": "es2017"
+    "module": "commonjs",                // Standard Node.js module resolution
+    "target": "ES2017",                  // JavaScript target version
+    "moduleResolution": "node",          // Resolve modules like Node.js
+    "esModuleInterop": true,             // Enable interoperability between ES6 and CommonJS
+    "strict": true,                      // Enable strict type-checking
+    "noImplicitAny": true,               // Disallow 'any' type
+    "noUnusedLocals": true,              // Disallow unused local variables
+    "noUnusedParameters": true,          // Disallow unused parameters
+    "outDir": "./lib",                   // Output folder for compiled files
+    "sourceMap": true                    // Enable source maps for debugging
   },
-  "compileOnSave": true,
   "include": [
-    "src"
+    "src/**/*"                           // Include all files in the 'src' folder
+  ],
+  "exclude": [
+    "node_modules",                      // Exclude node_modules
+    "lib"                                // Exclude the lib folder (compiled files)
   ]
 }
