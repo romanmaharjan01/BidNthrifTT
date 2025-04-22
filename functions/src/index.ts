@@ -1,36 +1,32 @@
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onCall } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import { QueryDocumentSnapshot, DocumentData } from "firebase-admin/firestore";
-import { FirestoreEvent } from "firebase-functions/v2/firestore";
+import Stripe from "stripe";
 
-// Initialize Firebase Admin SDK
 admin.initializeApp();
 
-// Define the Cloud Function
-export const updateAuctionPrice = onDocumentCreated(
-  "auctions/{auctionId}/bids/{bidId}",
-  async (event: FirestoreEvent<QueryDocumentSnapshot<DocumentData> | undefined, { auctionId: string, bidId: string }>) => {
-    // Extract the snapshot and params from the event
-    const snap = event.data;
-    const auctionId = event.params.auctionId;
+const stripe = new Stripe(process.env.STRIPE_SECRET as string, {
+  apiVersion: "2025-03-31.basil", // 🟢 Match your installed Stripe type version
+});
 
-    // Check if the snapshot exists
-    if (!snap) {
-      console.error("No snapshot data available for bid");
-      return;
+export const createPaymentIntent = onCall(async (request) => {
+  const { amount } = request.data;
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: "usd", // or "npr" if your account supports it
+    });
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+    };
+  } catch (error) {
+    logger.error("Payment Intent Creation Failed:", error);
+
+    if (error instanceof Error) {
+      return { error: error.message };
     }
-
-    const bid = snap.data();
-
-    // Update the auction document with the new bid amount
-    const auctionRef = admin.firestore().collection("auctions").doc(auctionId);
-    try {
-      await auctionRef.update({
-        price: bid.amount,
-      });
-      console.log(`Updated auction ${auctionId} price to ${bid.amount}`);
-    } catch (error) {
-      console.error(`Error updating auction ${auctionId} price:`, error);
-    }
+    return { error: "Unknown error occurred" };
   }
-);
+});
