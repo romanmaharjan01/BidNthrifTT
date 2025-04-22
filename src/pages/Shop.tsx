@@ -204,7 +204,7 @@ const Shop = () => {
                         <span className="product-size">{product.size}</span>
                       </div>
                       <p className="product-price">
-                        $
+                        Npr 
                         {typeof product.price === "number"
                           ? product.price.toFixed(2)
                           : product.price}
@@ -260,7 +260,7 @@ const Shop = () => {
                     {!product.isAuction && product.stock > 0 && (
                       <Button
                         className="buy-button"
-                        onClick={() => navigate(`/payment/${product.id}`)}
+                        onClick={() => navigate(`/product-detail/${product.id}`)}
                       >
                         Buy Now
                       </Button>
