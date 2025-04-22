@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,13 +17,13 @@ import About from "./pages/About";
 import Profile from "./pages/user/Profile";
 import Favorites from "./pages/Favorites";
 import Cart from "./pages/Cart";
-import Payment from "./pages/user/Payment";
+import Payment from "./pages/user/Payment"; // Ensure correct path
 import PaymentSuccess from "./pages/user/PaymentSuccess";
 import PaymentCancel from "./pages/user/PaymentCancel";
 import Admin from "./pages/Admin/Admin";
 import UserChatWrapper from "./pages/user/UserChatWrapper";
-import ProductDetail from "./pages/ProductDetail";
-import SetAuction from "./pages/Admin/setAuction";
+import ProductDetail from "./pages/ProductDetail"; // Ensure correct path
+import SetAuction from "./pages/Admin/setAuction"; // Adjusted case for consistency
 
 // Import User Details and its child components
 import UserDetails from "./pages/user/UserDetails";
@@ -62,7 +61,7 @@ const App = () => (
           <Route path="/auctions" element={<Auctions />} />
           <Route path="/sell" element={<Sell />} />
           <Route path="/about" element={<About />} />
-          <Route path="/product-detail/:id" element={<ProductDetail />} />
+          <Route path="/product-detail/:id" element={<ProductDetail />} /> {/* Product detail page */}
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route path="/setauction" element={<SetAuction />} />
@@ -71,7 +70,7 @@ const App = () => (
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-          <Route path="/payment/:productId" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
+          <Route path="/payment/:id" element={<ProtectedRoute><Payment /></ProtectedRoute>} /> {/* Payment page, requires auth */}
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><UserChatWrapper /></ProtectedRoute>} />
 
