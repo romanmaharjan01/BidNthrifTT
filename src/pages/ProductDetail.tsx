@@ -1,7 +1,16 @@
-// src/pages/ProductDetail.tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, setDoc, arrayUnion, getDocs, query, collection, where } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  arrayUnion,
+  getDocs,
+  query,
+  collection,
+  where,
+  addDoc,
+} from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import Navbar from "@/components/Navbar";
@@ -33,6 +42,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -40,7 +50,6 @@ const ProductDetail = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUserId(user ? user.uid : null);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -155,6 +164,67 @@ const ProductDetail = () => {
     }
   };
 
+  const handleBuyNow = async () => {
+    if (isBuying) return;
+    if (!userId) {
+      toast({
+        title: "Please Log In",
+        description: "You need to be logged in to make a purchase.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    if (!product || product.stock <= 0) {
+      toast({
+        title: "Error",
+        description: "Product is out of stock or unavailable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBuying(true);
+    try {
+      const order = {
+        userId,
+        cartItems: [
+          {
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            quantity: 1,
+            imageUrl: product.imageUrl,
+            category: product.category,
+            size: product.size,
+            seller: product.seller,
+          },
+        ],
+        total: Number(product.price),
+        paymentMethod: "Pending",
+        status: "Pending",
+        createdAt: new Date().toISOString(),
+      };
+
+      const orderRef = await addDoc(collection(db, "orders"), order);
+      toast({
+        title: "Order Created",
+        description: "Proceeding to payment.",
+      });
+      navigate(`/payment/${orderRef.id}`);
+    } catch (err) {
+      console.error("Error creating order:", err);
+      toast({
+        title: "Error",
+        description: "Failed to initiate purchase. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -206,7 +276,7 @@ const ProductDetail = () => {
             <div>
               <Label>Price</Label>
               <p className="text-lg font-semibold text-green-600">
-                ${typeof product.price === "number" ? product.price.toFixed(2) : product.price}
+                NPR {typeof product.price === "number" ? product.price.toFixed(2) : product.price}
               </p>
             </div>
 
@@ -222,7 +292,7 @@ const ProductDetail = () => {
                 >
                   {product.endsAt && new Date(product.endsAt).getTime() < Date.now()
                     ? "Auction Ended"
-                    : `Current Bid: $${
+                    : `Current Bid: NPR ${
                         typeof product.currentBid === "number"
                           ? product.currentBid.toFixed(2)
                           : product.currentBid
@@ -266,10 +336,11 @@ const ProductDetail = () => {
               {product.stock > 0 && !product.isAuction && (
                 <>
                   <Button
-                    onClick={() => navigate(`/payment/${product.id}`)}
+                    onClick={handleBuyNow}
                     className="bg-green-600 hover:bg-green-700"
+                    disabled={isBuying}
                   >
-                    Buy Now
+                    {isBuying ? "Processing..." : "Buy Now"}
                   </Button>
                   <Button
                     onClick={handleAddToCart}
