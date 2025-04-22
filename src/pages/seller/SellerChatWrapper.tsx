@@ -35,15 +35,19 @@ const SellerChatWrapper: React.FC = () => {
       return;
     }
 
-    console.log('Fetching chats for sellerId:', userId);
-    const q = query(collection(db, 'chats'), where('sellerId', '==', userId));
+    console.log('Fetching chats for userId:', userId);
+    // Modified query to use 'participants' array-contains to match security rules
+    const q = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        const chatData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Chat));
+        // Filter chats to only include those where the user is the seller
+        const chatData = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          } as Chat))
+          .filter((chat) => chat.sellerId === userId); // Ensure only seller chats are shown
         setChats(chatData);
 
         const buyerIds = [...new Set(chatData.map((chat) => chat.buyerId))];
@@ -71,7 +75,7 @@ const SellerChatWrapper: React.FC = () => {
       },
       (error: any) => {
         console.error('Error fetching chats:', error.message, error.code);
-        setError('Failed to load conversations: ' + error.message);
+        setError(`Failed to load conversations: ${error.message} (${error.code})`);
         setLoading(false);
       }
     );
