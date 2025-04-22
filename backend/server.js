@@ -1,94 +1,61 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env' });
-
+// server.js
 import express from 'express';
-import fetch from 'node-fetch';
 import cors from 'cors';
+import Stripe from 'stripe';
+import admin from 'firebase-admin';
 
+// Initialize Express app
 const app = express();
+const stripe = new Stripe('your-stripe-secret-key', { apiVersion: '2022-11-15' }); // Replace with your Stripe secret key
+
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert('./serviceAccountKey.json'), // Update this path
+});
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-const KHALTI_SECRET_KEY = process.env.KHALTI_SECRET_KEY;
-
-app.post('/initiate-payment', async (req, res) => {
-  const { amount, purchase_order_id } = req.body;
-
-  console.log("Initiating payment with:", { amount, purchase_order_id });
-  console.log("KHALTI_SECRET_KEY loaded:", !!KHALTI_SECRET_KEY);
-
-  if (!amount || typeof amount !== 'number' || amount <= 0) {
-    return res.status(400).json({ error: 'Invalid amount' });
-  }
-
-  if (!purchase_order_id) {
-    return res.status(400).json({ error: 'Purchase order ID is required' });
-  }
+// Endpoint to create Stripe PaymentIntent
+app.post('/create-payment-intent', async (req, res) => {
+  const { amount, orderId, userId } = req.body;
 
   try {
-    const response = await fetch('https://a.khalti.com/api/v2/epayment/initiate/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${KHALTI_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        return_url: 'http://localhost:29995/payment-success',
-        website_url: 'http://localhost:29995',
-        amount: Math.round(amount * 100),
-        purchase_order_id,
-        purchase_order_name: 'BidnThrift Order',
-      }),
+    // Validate request body
+    if (!amount || !orderId || !userId) {
+      return res.status(400).json({ error: 'Missing required fields: amount, orderId, userId' });
+    }
+
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount: must be a positive number' });
+    }
+
+    // Verify Firebase ID token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header missing or invalid' });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    if (decodedToken.uid !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: userId does not match authenticated user' });
+    }
+
+    // Create PaymentIntent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100, // Convert NPR to paisa (Stripe expects amount in smallest currency unit)
+      currency: 'npr',
+      metadata: { orderId, userId },
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log("Khalti response OK:", data);
-      res.json({
-        pidx: data.pidx,
-        payment_url: data.payment_url,
-      });
-    } else {
-      // console.error("Khalti response error:", data);
-      // res.status(500).json({ error: 'Khalti API error', details: data });
-      console.error("Raw Khalti error:", JSON.stringify(data, null, 2));
-      res.status(500).json({ error: 'Khalti API error', details: data });
-
-    }
+    res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
-    console.error('Error initiating Khalti payment:', error);
-    res.status(500).json({ error: 'Payment initiation failed', details: error.message });
+    console.error('Error creating PaymentIntent:', error);
+    res.status(500).json({ error: error.message || 'Failed to create payment intent' });
   }
 });
 
-app.post('/verify-payment', async (req, res) => {
-  const { pidx } = req.body;
-
-  try {
-    const response = await fetch('https://a.khalti.com/api/v2/epayment/lookup/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${KHALTI_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ pidx }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.status === 'Completed') {
-      res.json({ success: true, message: 'Payment verified successfully', data });
-    } else {
-      res.status(400).json({ success: false, message: 'Payment not completed', data });
-    }
-  } catch (error) {
-    console.error('Error verifying Khalti payment:', error);
-    res.status(500).json({ error: 'Payment verification failed' });
-  }
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start the server
+app.listen(5000, () => console.log('Server running on port 5000'));
