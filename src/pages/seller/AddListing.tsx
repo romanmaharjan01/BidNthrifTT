@@ -1,4 +1,3 @@
-// src/components/seller/AddListing.tsx
 import React, { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -110,9 +109,10 @@ const AddListing: React.FC = () => {
         sellerId: user.uid,
         sellerEmail: user.email,
         createdAt: new Date(),
+        status: "pending", // Set status to pending for admin approval
       });
 
-      toast({ title: "Success", description: "Your item has been listed!" });
+      toast({ title: "Success", description: "Your item has been submitted for admin approval!" });
       setTitle("");
       setPrice("");
       setDescription("");
@@ -199,7 +199,7 @@ const AddListing: React.FC = () => {
         disabled={isLoading}
         className="w-full mt-4 bg-green-600 hover:bg-green-700"
       >
-        {isLoading ? "Saving..." : "List for Sale"}
+        {isLoading ? "Submitting..." : "Submit for Approval"}
       </Button>
     </form>
   );

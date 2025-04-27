@@ -3,24 +3,45 @@ import { auth, db } from "../firebase";
 import { collection, onSnapshot, updateDoc, doc, deleteDoc, query, where, getDoc, setDoc } from "firebase/firestore";
 import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts"; // Ensure CartesianGrid is imported
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { motion } from "framer-motion";
 import AuctionOversight from "./AuctionOversight";
 import "./AdminPanel.css";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+
+// Define interfaces to align with AuctionOversight
+interface Auction {
+  id: string;
+  title: string;
+  price: number;
+  endTime: string;
+  status: "upcoming" | "active" | "ended" | "sold" | "sold_pending";
+  description?: string;
+  imageUrl?: string;
+  bids?: { userId: string; amount: number; timestamp: string }[];
+}
+
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  banned?: boolean;
+  purchasesCount?: number;
+  listingsCount?: number;
+}
 
 const Admin = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [pendingProducts, setPendingProducts] = useState<any[]>([]);
-  const [auctions, setAuctions] = useState<any[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [view, setView] = useState<"dashboard" | "consumers" | "sellers" | "products" | "pending" | "auctions" | "profile">("dashboard");
@@ -87,7 +108,7 @@ const Admin = () => {
   const fetchUsers = () => {
     try {
       const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
-        const userList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const userList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as User));
         setUsers(userList);
         console.log("Fetched users:", userList);
       }, (error) => {
@@ -147,7 +168,7 @@ const Admin = () => {
   const fetchAuctions = () => {
     try {
       const unsubscribe = onSnapshot(collection(db, "auctions"), (snapshot) => {
-        const auctionList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const auctionList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Auction));
         setAuctions(auctionList);
       }, (error) => {
         console.error("Error fetching auctions:", error);
@@ -288,18 +309,6 @@ const Admin = () => {
     }
   };
 
-  const handleDeleteAuction = async (auctionId: string) => {
-    if (window.confirm("Are you sure you want to delete this auction?")) {
-      try {
-        await deleteDoc(doc(db, "auctions", auctionId));
-        toast({ title: "Auction Deleted", description: "The auction has been deleted successfully." });
-      } catch (error) {
-        console.error("Error deleting auction:", error);
-        toast({ title: "Error", description: "Failed to delete auction.", variant: "destructive" });
-      }
-    }
-  };
-
   const handleEdit = () => {
     setIsEditing(true);
     setNewImageUrl(profileImage);
@@ -382,7 +391,7 @@ const Admin = () => {
               ) : analytics.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={analytics}>
-                    <CartesianGrid strokeDasharray="3 3" /> {/* Fixed typo: Changed "Cartesian dentesGrid" to "CartesianGrid" */}
+                    <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip formatter={(value, name) => (name === "Total Revenue" ? `$${value}` : value)} />
@@ -598,8 +607,6 @@ const Admin = () => {
               <AuctionOversight
                 auctions={auctions}
                 users={users}
-                onDelete={handleDeleteAuction}
-                fetchAuctions={fetchAuctions}
               />
             </motion.div>
           )}

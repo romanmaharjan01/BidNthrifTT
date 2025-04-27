@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, onSnapshot, doc, updateDoc, setDoc } from "firebase/firestore";
-import { Button } from "@/components/ui/button";
+import { collection, onSnapshot } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 interface Auction {
   id: string;
@@ -31,14 +29,11 @@ interface User {
 interface AuctionOversightProps {
   auctions: Auction[];
   users: User[];
-  onDelete: (auctionId: string) => void;
-  fetchAuctions: () => void;
 }
 
-const AuctionOversight = ({ auctions, users, onDelete }: AuctionOversightProps) => {
+const AuctionOversight = ({ auctions, users }: AuctionOversightProps) => {
   const [bidsByAuction, setBidsByAuction] = useState<{ [auctionId: string]: any[] }>({});
   const { toast } = useToast();
-  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     const unsubscribes: (() => void)[] = [];
@@ -71,48 +66,13 @@ const AuctionOversight = ({ auctions, users, onDelete }: AuctionOversightProps) 
     return user ? user.fullName : "Unknown User";
   };
 
-  const markAsSold = async (auctionId: string, highestBid: any) => {
-    if (!highestBid) {
-      toast({ title: "Error", description: "No bids found for this auction.", variant: "destructive" });
-      return;
-    }
-    try {
-      const notificationId = `${auctionId}_${highestBid.userId}`;
-      await setDoc(doc(db, "notifications", notificationId), {
-        userId: highestBid.userId,
-        auctionId,
-        message: `You won the auction for ${auctions.find((a) => a.id === auctionId)?.title}! Please acknowledge.`,
-        status: "pending",
-        timestamp: new Date().toISOString(),
-      });
-
-      await updateDoc(doc(db, "auctions", auctionId), { status: "sold_pending" });
-
-      toast({
-        title: "Notification Sent",
-        description: `Notified ${getUserFullName(highestBid.userId)} to acknowledge the sale.`,
-      });
-    } catch (error) {
-      console.error("Error marking auction as sold:", error);
-      toast({ title: "Error", description: "Failed to mark auction as sold.", variant: "destructive" });
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="flex justify-between items-center mb-4">
-        <h1>Auction Oversight</h1>
-        <Button
-          onClick={() => navigate("/setauction")} // Navigate to setAuction route
-          className="bg-green-600 hover:bg-green-700"
-        >
-          Create New Auction
-        </Button>
-      </div>
+      <h1 className="mb-4">Auction Oversight</h1>
       {auctions.length > 0 ? (
         <Table>
           <TableHeader>
@@ -121,8 +81,7 @@ const AuctionOversight = ({ auctions, users, onDelete }: AuctionOversightProps) 
               <TableHead>Starting Price</TableHead>
               <TableHead>End Time</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Highest Bid</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Highest Bidder</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,22 +99,6 @@ const AuctionOversight = ({ auctions, users, onDelete }: AuctionOversightProps) 
                     {highestBid
                       ? `${getUserFullName(highestBid.userId)}: ₨${highestBid.amount.toFixed(2)}`
                       : "No bids"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      onClick={() => onDelete(auction.id)}
-                      className="delete-btn bg-red-600 hover:bg-red-700 mr-2"
-                    >
-                      Delete
-                    </Button>
-                    {auction.status === "ended" && (
-                      <Button
-                        onClick={() => markAsSold(auction.id, highestBid)}
-                        className="sold-btn bg-blue-600 hover:bg-blue-700"
-                      >
-                        Mark as Sold
-                      </Button>
-                    )}
                   </TableCell>
                 </TableRow>
               );

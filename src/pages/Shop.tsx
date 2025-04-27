@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { FaHeart, FaRegHeart, FaSearch, FaTimes } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import "./Shop.css";
@@ -22,6 +22,7 @@ interface Product {
   isAuction: boolean;
   endsAt?: string;
   seller: string;
+  status: string; // Added status field
 }
 
 const Shop = () => {
@@ -31,7 +32,7 @@ const Shop = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const navigate = useNavigate(); // Add useNavigate hook
+  const navigate = useNavigate();
 
   const allCategories = [
     "Clothing",
@@ -48,7 +49,9 @@ const Shop = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
+        // Only fetch products with status: "approved"
+        const productsQuery = query(collection(db, "products"), where("status", "==", "approved"));
+        const querySnapshot = await getDocs(productsQuery);
         const productList = querySnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
@@ -64,6 +67,7 @@ const Shop = () => {
             isAuction: data.isAuction || false,
             endsAt: data.endsAt || undefined,
             seller: data.seller || "",
+            status: data.status || "approved", // Include status field
           } as Product;
         });
 

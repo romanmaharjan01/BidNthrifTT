@@ -1,9 +1,9 @@
 // src/pages/user/Profile.tsx
 import React, { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { auth, db, storage } from "../firebase"; // Adjust path as needed
-import { updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { updateProfile, User } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,17 @@ interface Context {
 }
 
 const ProfileSection: React.FC = () => {
-  const { profile, navigate } = useOutletContext<Context>();
+  // Add a default empty object with optional chaining to handle null profile
+  const location = useLocation();
+  const isStandalone = !location.pathname.includes("user-details");
+  const directNavigate = useNavigate();
+  
+  // In standalone mode, we won't have outlet context
+  const outletContext = isStandalone ? null : useOutletContext<Context>();
+  const { profile: contextProfile = null, navigate: contextNavigate } = outletContext || {};
+  
+  const navigate = isStandalone ? directNavigate : contextNavigate;
+  
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<ProfileData>({
     fullName: "",
@@ -32,7 +42,54 @@ const ProfileSection: React.FC = () => {
   });
   const [newImage, setNewImage] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(isStandalone);
+  const [profile, setProfile] = useState<ProfileData | null>(contextProfile);
   const { toast } = useToast();
+
+  // Fetch user data when in standalone mode
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!isStandalone || !auth.currentUser) return;
+      
+      try {
+        setIsLoading(true);
+        const uid = auth.currentUser.uid;
+        const userDocRef = doc(db, "users", uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setProfile({
+            fullName: userData.fullName || auth.currentUser?.displayName || "Unknown",
+            email: auth.currentUser?.email || "",
+            profileImage: userData.profileImage || auth.currentUser?.photoURL || "https://placehold.co/150x150",
+          });
+        } else {
+          setProfile({
+            fullName: auth.currentUser?.displayName || "Unknown",
+            email: auth.currentUser?.email || "",
+            profileImage: auth.currentUser?.photoURL || "https://placehold.co/150x150",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isStandalone) {
+      fetchUserData();
+    } else {
+      // When using in nested route, get profile from context
+      setProfile(contextProfile);
+    }
+  }, [isStandalone, auth.currentUser, contextProfile, toast]);
 
   // Initialize form data when profile data is available
   useEffect(() => {
@@ -117,7 +174,14 @@ const ProfileSection: React.FC = () => {
         { merge: true }
       );
 
-      // Update the local profile state (this will trigger a re-render in UserDetails.tsx)
+      // Update local state
+      setProfile({
+        ...profile!,
+        fullName: formData.fullName,
+        profileImage: imageURL,
+      });
+
+      // Show success message
       toast({
         title: "Profile Updated!",
         description: "Your changes have been saved.",
@@ -135,94 +199,127 @@ const ProfileSection: React.FC = () => {
     }
   };
 
-  if (!profile) {
-    return <p className="no-items">Profile data not available.</p>;
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[300px]">
+        <Loader2 className="animate-spin w-8 h-8 text-teal-600" />
+      </div>
+    );
   }
 
-  return (
-    <section className="section">
-      <h2 className="section-title">Profile</h2>
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="profileImage">Profile Image</Label>
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden">
-              <img
-                src={formData.profileImage}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            {isEditing && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                  id="imageUpload"
-                />
-                <label htmlFor="imageUpload">
-                  <Button variant="outline" size="icon" asChild>
-                    <Upload className="w-5 h-5" />
-                  </Button>
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
+  // If navigate is undefined in nested route or profile is not yet available
+  if (!isStandalone && !navigate) {
+    return <p className="no-items">Loading profile data...</p>;
+  }
 
-        <div>
-          <Label htmlFor="fullName">Full Name</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-            />
-            {!isEditing ? (
-              <Button variant="outline" size="icon" onClick={handleEdit}>
-                <Pencil className="w-4 h-4" />
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                  ) : null}
-                  {isSaving ? "Saving..." : "Save"}
-                </Button>
-                <Button
-                  onClick={handleCancel}
-                  variant="outline"
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+  // Show loading state if profile is not yet available
+  if (!profile) {
+    return <p className="no-items">Loading profile data...</p>;
+  }
 
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            disabled
-          />
+  // Render the standalone profile page with header
+  if (isStandalone) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          {renderProfileForm()}
         </div>
       </div>
-    </section>
-  );
+    );
+  }
+
+  // Render just the form for nested routes
+  return renderProfileForm();
+
+  // Helper function to render the profile form
+  function renderProfileForm() {
+    return (
+      <section className="section">
+        <h2 className="section-title">Profile</h2>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="profileImage">Profile Image</Label>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden">
+                <img
+                  src={formData.profileImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {isEditing && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="imageUpload"
+                  />
+                  <label htmlFor="imageUpload">
+                    <Button variant="outline" size="icon" asChild>
+                      <Upload className="w-5 h-5" />
+                    </Button>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="fullName">Full Name</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+              />
+              {!isEditing ? (
+                <Button variant="outline" size="icon" onClick={handleEdit}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                    ) : null}
+                    {isSaving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              disabled
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
 };
 
 export default ProfileSection;
