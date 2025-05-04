@@ -9,12 +9,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { sendAutomatedPurchaseMessage, sendAutomatedAuctionMessage } from "@/services/chatService";
 import { auth, db } from "../firebase";
-import { getDoc, doc, updateDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
+import { getDoc, doc, updateDoc, collection, query, where, getDocs, limit, addDoc } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import OrderChat from '@/components/OrderChat';
 import config from '@/config';
 import { createOrderNotification, createPaymentNotification } from "@/services/notificationService";
 import { initializeOrderChat } from "@/services/chatService";
+import { Timestamp } from "firebase/firestore";
 
 // Initialize Stripe
 const stripePromise = loadStripe('pk_test_51RGXzVPewya4IHYyhSnVWU000x3SxIRlCMbtywY8rYsBXrxv81SpXDEvlq1kIVx5QZiJYfa9ocHMvtYBLsP883wv00ovh93c0C');
@@ -338,34 +339,76 @@ const PaymentSuccess = () => {
 
 // Define or import processSuccessfulPayment function
 const processSuccessfulPayment = async (
-  paymentData: any,
-  params: URLSearchParams,
-  setStatus: React.Dispatch<React.SetStateAction<'loading' | 'success' | 'error'>>,
-  setMessage: React.Dispatch<React.SetStateAction<string>>,
-  toast: (options: { title: string; description: string }) => void
+  data: any,
+  params: any,
+  setStatus: (status: "loading" | "success" | "error") => void,
+  setMessage: (message: string) => void,
+  toast: any
 ) => {
   try {
-    const orderId = paymentData.orderId || params.get('order_id');
+    const orderId = data.orderId || params.orderId;
     const userId = auth.currentUser?.uid;
-    
+
     if (!orderId) {
-      // Still show success even without order ID
-      setStatus('success');
-      setMessage('Payment successful! Thank you for your purchase.');
-      toast({
-        title: 'Payment Successful',
-        description: 'Thank you for your purchase!'
-      });
-      return;
+      throw new Error('Order ID not found');
     }
-    
+
     try {
-      // First try to get order from Firestore
+      // Get order details
       const orderDoc = await getDoc(doc(db, "orders", orderId));
       
       if (orderDoc.exists()) {
         const orderData = orderDoc.data();
         
+        // Store each item in the purchases collection
+        if (orderData.items && orderData.items.length > 0) {
+          for (const item of orderData.items) {
+            // Get product details
+            const productRef = doc(db, "products", item.productId);
+            const productDoc = await getDoc(productRef);
+            
+            if (productDoc.exists()) {
+              const productData = productDoc.data();
+              
+              // Add to purchases collection with delivery tracking
+              await addDoc(collection(db, "purchases"), {
+                buyerId: userId,
+                productId: item.productId,
+                title: item.title,
+                price: item.price,
+                quantity: item.quantity,
+                imageUrl: item.imageUrl || productData.imageUrl || "",
+                images: productData.images || [],  // Store all product images
+                description: productData.description || "",
+                sellerId: productData.sellerId,
+                purchaseDate: Timestamp.now(),
+                orderId: orderId,
+                deliveryStatus: {
+                  status: "Processing",
+                  location: "Seller's Warehouse",
+                  updatedAt: Timestamp.now(),
+                  history: [
+                    {
+                      status: "Order Placed",
+                      location: "System",
+                      timestamp: Timestamp.now(),
+                      description: "Your order has been successfully placed"
+                    }
+                  ]
+                }
+              });
+
+              // Update stock
+              const currentStock = productData.stock;
+              const newStock = Math.max(0, currentStock - item.quantity);
+              
+              await updateDoc(productRef, {
+                stock: newStock
+              });
+            }
+          }
+        }
+
         // Create notification for seller
         if (orderData.sellerId && userId) {
           try {
