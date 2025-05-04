@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { db, auth } from "../firebase";
 import Navbar from "@/components/Navbar";
@@ -60,21 +60,26 @@ const Auctions = () => {
         })) as Auction[];
 
         // Set up real-time listeners for each auction's bids
-        const auctionListWithListeners = auctionList.map((auction) => {
-          const bidsQuery = query(
-            collection(db, "auctions", auction.id, "bids"),
-            orderBy("timestamp", "desc")
-          );
-          const unsubscribe = onSnapshot(bidsQuery, (snapshot) => {
-            const highestBid = snapshot.docs[0]?.data()?.amount || auction.price;
-            setAuctions((prev) =>
-              prev.map((item) =>
-                item.id === auction.id ? { ...item, price: highestBid } : item
-              )
+        const auctionListWithListeners = auctionList
+          .filter(auction => {
+            // Keep auctions that haven't ended yet
+            return !auction.endTime || new Date(auction.endTime).getTime() > Date.now();
+          })
+          .map((auction) => {
+            const bidsQuery = query(
+              collection(db, "auctions", auction.id, "bids"),
+              orderBy("timestamp", "desc")
             );
+            const unsubscribe = onSnapshot(bidsQuery, (snapshot) => {
+              const highestBid = snapshot.docs[0]?.data()?.amount || auction.price;
+              setAuctions((prev) =>
+                prev.map((item) =>
+                  item.id === auction.id ? { ...item, price: highestBid } : item
+                )
+              );
+            });
+            return { ...auction, unsubscribe };
           });
-          return { ...auction, unsubscribe };
-        });
 
         setAuctions(auctionListWithListeners);
       } catch (err) {
@@ -92,6 +97,42 @@ const Auctions = () => {
         if (auction.unsubscribe) auction.unsubscribe();
       });
     };
+  }, []);
+
+  // Add a function to automatically update auction status when ended
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setAuctions((prevAuctions) => {
+        const updatedAuctions = prevAuctions.map((auction) => {
+          if (auction.endTime && new Date(auction.endTime).getTime() <= Date.now() && auction.status !== 'ended') {
+            // Update the auction status in Firestore
+            try {
+              const auctionRef = doc(db, "auctions", auction.id);
+              updateDoc(auctionRef, { status: 'ended' }).catch(err => {
+                console.error("Error updating auction status:", err);
+              });
+              
+              // Return the updated auction for the UI
+              return { ...auction, status: 'ended' };
+            } catch (err) {
+              console.error("Error updating auction status:", err);
+              return auction;
+            }
+          }
+          return auction;
+        });
+        
+        // Filter out ended auctions if they should no longer be displayed
+        return updatedAuctions.filter(auction => {
+          // Keep auctions that haven't ended yet or ended very recently (within 1 hour)
+          const endTime = auction.endTime ? new Date(auction.endTime).getTime() : Infinity;
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+          return endTime > Date.now() || (endTime <= Date.now() && endTime > oneHourAgo);
+        });
+      });
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const handlePlaceBid = async (id: string, newBid: number, currentBid: number) => {
