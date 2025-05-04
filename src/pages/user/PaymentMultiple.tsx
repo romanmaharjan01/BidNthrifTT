@@ -538,6 +538,21 @@ const PaymentMultiple: React.FC = () => {
           createdAt: Timestamp.now(),
         });
         
+        // Update stock for each item
+        for (const item of items) {
+          const productRef = doc(db, "products", item.productId);
+          const productDoc = await getDoc(productRef);
+          
+          if (productDoc.exists()) {
+            const currentStock = productDoc.data().stock;
+            const newStock = Math.max(0, currentStock - item.quantity);
+            
+            await updateDoc(productRef, {
+              stock: newStock
+            });
+          }
+        }
+        
         // Send notification to seller
         try {
           // Get buyer name
