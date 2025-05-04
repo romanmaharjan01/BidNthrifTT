@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import "./UserDetails.css";
 import ProfileSection from "./Profile";
+import Navbar from "@/components/Navbar";
+import { User as UserIcon, ShoppingBag, ShoppingCart } from "lucide-react";
 
 interface Purchase {
   id: string;
@@ -25,11 +27,6 @@ interface CartItem {
   quantity: number;
 }
 
-interface Favorite {
-  id: string;
-  title: string;
-}
-
 interface ProfileData {
   fullName: string;
   email: string;
@@ -40,7 +37,6 @@ const UserDetails: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -112,20 +108,6 @@ const UserDetails: React.FC = () => {
         quantity: doc.data().quantity || 1,
       }));
       setCartItems(cartData);
-
-      // Fetch favorites
-      const savedFavorites = localStorage.getItem("favorites");
-      if (savedFavorites) {
-        const favoriteIds = JSON.parse(savedFavorites);
-        const favoritesData: Favorite[] = [];
-        for (const id of favoriteIds) {
-          const productDoc = await getDoc(doc(db, "products", id));
-          if (productDoc.exists()) {
-            favoritesData.push({ id, title: productDoc.data().title || "Unknown" });
-          }
-        }
-        setFavorites(favoritesData);
-      }
     } catch (error: any) {
       console.error("Error fetching user data:", error.message, error.code);
       setProfile({
@@ -135,7 +117,6 @@ const UserDetails: React.FC = () => {
       });
       setPurchases([]);
       setCartItems([]);
-      setFavorites([]);
     }
   };
 
@@ -154,15 +135,7 @@ const UserDetails: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="p-4 bg-gray-100 flex justify-between items-center">
-        <h1 className="text-xl font-bold">User Dashboard</h1>
-        <Button
-          onClick={() => navigate("/")}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          Go Home
-        </Button>
-      </header>
+      <Navbar />
       <main className="flex-1 flex flex-row">
         <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""}`}>
           <div className="sidebar-header">
@@ -179,32 +152,26 @@ const UserDetails: React.FC = () => {
           <nav className="sidebar-nav">
             <NavLink
               to="profile"
-              className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
+              className={({ isActive }) =>
+                isActive ? "sidebar-link active bg-gray-100 text-black font-semibold" : "sidebar-link"
+              }
             >
-              <i className="fa fa-user"></i> Profile
+              <UserIcon className="mr-2 h-4 w-4" />
+              Profile
             </NavLink>
             <NavLink
               to="purchases"
-              className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
+              className={({ isActive }) =>
+                isActive ? "sidebar-link active bg-gray-100 text-black font-semibold" : "sidebar-link"
+              }
             >
-              <i className="fa fa-shopping-bag"></i> Purchased Products
-            </NavLink>
-            <NavLink
-              to="cart"
-              className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
-            >
-              <i className="fa fa-shopping-cart"></i> Cart Items
-            </NavLink>
-            <NavLink
-              to="favorites"
-              className={({ isActive }) => (isActive ? "menu-link active" : "menu-link")}
-            >
-              <i className="fa fa-heart"></i> Favorites
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              Purchases
             </NavLink>
           </nav>
         </aside>
         <section className="content">
-          <Outlet context={{ profile, purchases, cartItems, favorites, navigate }} />
+          <Outlet context={{ profile, purchases, cartItems, navigate }} />
         </section>
       </main>
       <Footer />
