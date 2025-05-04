@@ -488,4 +488,19 @@ export async function clearBotConversationHistory(userId: string): Promise<boole
     console.error("Error clearing bot conversation history:", error);
     return false;
   }
+}
+
+// Function to check if a user is a consumer
+export async function isConsumerUser(userId: string): Promise<boolean> {
+  try {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (!userDoc.exists()) {
+      return false;
+    }
+    const userData = userDoc.data();
+    return userData.role === "consumer";
+  } catch (error) {
+    console.error("Error checking user role:", error);
+    return false;
+  }
 } 
