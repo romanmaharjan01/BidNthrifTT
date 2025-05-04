@@ -264,29 +264,40 @@
 }
 
 .product-stock {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
 
 .in-stock {
-  color: #4caf50;
+  color: #059669;
+  background-color: rgba(5, 150, 105, 0.1);
 }
 
 .out-of-stock {
-  color: #d81b60;
+  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.1);
 }
 
 .product-auction {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
 }
 
 .auction-active {
-  color: #455a64;
+  color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.1);
 }
 
 .auction-ended {
-  color: #d81b60;
+  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.1);
 }
 
 .product-actions {
@@ -418,4 +429,26 @@
   .product-price {
     font-size: 16px;
   }
+}
+
+/* Destructive card styles */
+.product-card.destructive {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.product-card.destructive:after {
+  content: "Not Available";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  background: rgba(220, 38, 38, 0.8);
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+  z-index: 2;
+  width: 90%;
+  text-align: center;
 }
