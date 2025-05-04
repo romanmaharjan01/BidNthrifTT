@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import "./Shop.css";
+import { toast } from "@/components/ui/use-toast";
 
 interface Product {
   id: string;
@@ -71,8 +72,13 @@ const Shop = () => {
           } as Product;
         });
 
-        setProducts(productList);
-        setFilteredProducts(productList);
+        // Filter out products with stock = 0 (non-auction products only)
+        const availableProducts = productList.filter(product => 
+          product.isAuction || (!product.isAuction && product.stock > 0)
+        );
+
+        setProducts(availableProducts);
+        setFilteredProducts(availableProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -186,92 +192,119 @@ const Shop = () => {
         ) : (
           <div className="products-grid">
             {filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <div key={product.id} className="product-card">
-                  <Link
-                    to={`/product-detail/${product.id}`}
-                    className="product-card-link"
+              filteredProducts.map((product) => {
+                const isOutOfStock = !product.isAuction && product.stock <= 0;
+                const isAuctionEnded = product.isAuction && product.endsAt && new Date(product.endsAt).getTime() < Date.now();
+                const isDestructive = isOutOfStock || isAuctionEnded;
+                
+                return (
+                  <div 
+                    key={product.id} 
+                    className={`product-card ${isDestructive ? 'destructive' : ''}`}
                   >
-                    <div className="product-image-container">
-                      <img
-                        src={product.imageUrl}
-                        alt={product.title}
-                        className="product-image"
-                      />
-                    </div>
-                    <div className="product-info">
-                      <h3 className="product-title">{product.title}</h3>
-                      <div className="product-meta">
-                        <span className="product-category">
-                          {product.category}
-                        </span>
-                        <span className="product-size">{product.size}</span>
+                    <Link
+                      to={isDestructive ? '#' : `/product-detail/${product.id}`}
+                      className="product-card-link"
+                      onClick={(e) => {
+                        if (isDestructive) {
+                          e.preventDefault();
+                          if (isOutOfStock) {
+                            toast({
+                              title: "Product Unavailable",
+                              description: "This product is currently out of stock.",
+                              variant: "destructive",
+                            });
+                          } else if (isAuctionEnded) {
+                            toast({
+                              title: "Auction Ended",
+                              description: "This auction has already ended.",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      <div className="product-image-container">
+                        <img
+                          src={product.imageUrl}
+                          alt={product.title}
+                          className="product-image"
+                        />
                       </div>
-                      <p className="product-price">
-                        Npr 
-                        {typeof product.price === "number"
-                          ? product.price.toFixed(2)
-                          : product.price}
-                      </p>
-                      <div className="product-status">
-                        <span
-                          className={`product-stock ${
-                            product.stock > 0 ? "in-stock" : "out-of-stock"
-                          }`}
-                        >
-                          {product.stock > 0
-                            ? `In Stock (${product.stock})`
-                            : "Out of Stock"}
-                        </span>
-                        {product.isAuction && (
+                      <div className="product-info">
+                        <h3 className="product-title">{product.title}</h3>
+                        <div className="product-meta">
+                          <span className="product-category">
+                            {product.category}
+                          </span>
+                          <span className="product-size">{product.size}</span>
+                        </div>
+                        <p className="product-price">
+                          Npr 
+                          {typeof product.price === "number"
+                            ? product.price.toFixed(2)
+                            : product.price}
+                        </p>
+                        <div className="product-status">
                           <span
-                            className={`product-auction ${
-                              product.endsAt &&
-                              new Date(product.endsAt).getTime() < Date.now()
-                                ? "auction-ended"
-                                : "auction-active"
+                            className={`product-stock ${
+                              product.stock > 0 ? "in-stock" : "out-of-stock"
                             }`}
                           >
-                            {product.endsAt &&
-                            new Date(product.endsAt).getTime() < Date.now()
-                              ? "Auction Ended"
-                              : `Current Bid: $${
-                                  typeof product.currentBid === "number"
-                                    ? product.currentBid.toFixed(2)
-                                    : product.currentBid
-                                }`}
+                            {product.stock > 0
+                              ? `In Stock (${product.stock})`
+                              : "Out of Stock"}
                           </span>
-                        )}
+                          {product.isAuction && (
+                            <span
+                              className={`product-auction ${
+                                product.endsAt &&
+                                new Date(product.endsAt).getTime() < Date.now()
+                                  ? "auction-ended"
+                                  : "auction-active"
+                              }`}
+                            >
+                              {product.endsAt &&
+                              new Date(product.endsAt).getTime() < Date.now()
+                                ? "Auction Ended"
+                                : `Current Bid: $${
+                                    typeof product.currentBid === "number"
+                                      ? product.currentBid.toFixed(2)
+                                      : product.currentBid
+                                  }`}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                  <div className="product-actions">
-                    <button
-                      className="favorite-button"
-                      onClick={() => toggleFavorite(product.id)}
-                      aria-label={
-                        favorites.includes(product.id)
-                          ? "Remove from favorites"
-                          : "Add to favorites"
-                      }
-                    >
-                      {favorites.includes(product.id) ? (
-                        <FaHeart className="heart-filled" />
-                      ) : (
-                        <FaRegHeart />
-                      )}
-                    </button>
-                    {!product.isAuction && product.stock > 0 && (
-                      <Button
-                        className="buy-button"
-                        onClick={() => navigate(`/product-detail/${product.id}`)}
+                    </Link>
+                    <div className="product-actions">
+                      <button
+                        className="favorite-button"
+                        onClick={() => toggleFavorite(product.id)}
+                        aria-label={
+                          favorites.includes(product.id)
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
                       >
-                        Buy Now
-                      </Button>
-                    )}
+                        {favorites.includes(product.id) ? (
+                          <FaHeart className="heart-filled" />
+                        ) : (
+                          <FaRegHeart />
+                        )}
+                      </button>
+                      {!product.isAuction && product.stock > 0 && (
+                        <Button
+                          className="buy-button"
+                          onClick={() => navigate(`/product-detail/${product.id}`)}
+                        >
+                          Buy Now
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="no-products">
                 <p>
