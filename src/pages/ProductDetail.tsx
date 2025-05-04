@@ -95,6 +95,30 @@ const ProductDetail = () => {
         if (productSnap.exists()) {
           const data = productSnap.data();
           
+          // Check if product is out of stock or auction has ended
+          const isOutOfStock = !data.isAuction && (data.stock <= 0);
+          const isAuctionEnded = data.isAuction && data.endTime && new Date(data.endTime).getTime() < Date.now();
+          
+          if (isOutOfStock) {
+            toast({
+              title: "Product Unavailable",
+              description: "This product is currently out of stock.",
+              variant: "destructive",
+            });
+            navigate("/shop");
+            return;
+          }
+          
+          if (isAuctionEnded) {
+            toast({
+              title: "Auction Ended",
+              description: "This auction has already ended.",
+              variant: "destructive",
+            });
+            navigate("/auctions");
+            return;
+          }
+          
           // Determine seller ID from the product data
           const actualSellerId = data.sellerId || data.seller || "";
           
@@ -161,7 +185,7 @@ const ProductDetail = () => {
     };
 
     fetchProduct();
-  }, [id, toast]);
+  }, [id, toast, navigate]);
 
   const handleSendMessage = async () => {
     if (!userId) {
