@@ -83,8 +83,6 @@ const App = () => (
             <Route path="/user-details" element={<ProtectedRoute><UserDetails /></ProtectedRoute>}>
               <Route path="profile" element={<ProfileSection />} />
               <Route path="purchases" element={<PurchasedProducts />} />
-              <Route path="cart" element={<CartItems />} />
-              <Route path="favorites" element={<UserFavorites />} />
               <Route index element={<ProfileSection />} />
             </Route>
 
