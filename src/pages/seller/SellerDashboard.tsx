@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { collection, getDocs, query, where, onSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-// import "./seller.css";
+import "./sellerdashboard.css";
 
 interface Product {
   id: string;
