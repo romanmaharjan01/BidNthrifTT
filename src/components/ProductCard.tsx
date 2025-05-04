@@ -1,10 +1,12 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Heart, Clock, Tag } from "lucide-react";
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { db, auth } from "../pages/firebase";
+import { useToast } from "@/components/ui/use-toast";
 
 export interface Product {
   id: string;
@@ -25,11 +27,80 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isFavorite, setIsFavorite] = useState(false);
+  const { toast } = useToast();
   
-  const toggleFavorite = (e: React.MouseEvent) => {
+  useEffect(() => {
+    const checkFavorite = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const favorites = userDoc.data().favorites || [];
+        setIsFavorite(favorites.includes(product.id));
+      }
+    };
+    
+    checkFavorite();
+  }, [product.id]);
+  
+  const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
+    
+    const user = auth.currentUser;
+    if (!user) {
+      toast({
+        title: "Please Log In",
+        description: "You need to be logged in to add items to favorites.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const favorites = userDoc.data().favorites || [];
+        if (favorites.includes(product.id)) {
+          await setDoc(userRef, {
+            favorites: arrayRemove(product.id)
+          }, { merge: true });
+          setIsFavorite(false);
+          toast({
+            title: "Removed from Favorites",
+            description: `${product.title} has been removed from your favorites.`,
+          });
+        } else {
+          await setDoc(userRef, {
+            favorites: arrayUnion(product.id)
+          }, { merge: true });
+          setIsFavorite(true);
+          toast({
+            title: "Added to Favorites",
+            description: `${product.title} has been added to your favorites.`,
+          });
+        }
+      } else {
+        await setDoc(userRef, {
+          favorites: [product.id]
+        });
+        setIsFavorite(true);
+        toast({
+          title: "Added to Favorites",
+          description: `${product.title} has been added to your favorites.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating favorites:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const formatPrice = (price: number) => {
