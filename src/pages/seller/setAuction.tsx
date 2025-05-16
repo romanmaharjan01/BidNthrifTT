@@ -27,7 +27,11 @@ const SetAuction = () => {
       setLoading(false);
     };
 
-    checkUser();
+    checkUser().catch((err) => {
+      console.error("Error checking user:", err);
+      setError("Failed to verify user. Please try again.");
+      setLoading(false);
+    });
   }, [navigate]);
 
   const handleAuctionSubmit = async () => {
@@ -36,18 +40,24 @@ const SetAuction = () => {
       return;
     }
 
+    const endTime = new Date(`${auctionDate}T${auctionTime}`).toISOString();
+    if (new Date(endTime) <= new Date()) {
+      setError("Auction end time must be in the future!");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const endTime = new Date(`${auctionDate}T${auctionTime}`).toISOString();
       const user = auth.currentUser;
-
       await addDoc(collection(db, "auctions"), {
         title,
         description,
         imageUrl,
         price: Number(startingPrice),
+        startTime: new Date().toISOString(), // Added start time
         endTime,
         status: "upcoming",
         sellerId: user.uid,
@@ -58,7 +68,7 @@ const SetAuction = () => {
       alert("Auction created successfully!");
       navigate("/seller/my-auctions");
     } catch (err) {
-      setError("Failed to create auction. Please try again.");
+      setError(`Failed to create auction: ${err.message}`);
       console.error("Error adding auction:", err);
     } finally {
       setLoading(false);
@@ -120,8 +130,9 @@ const SetAuction = () => {
                 type="text"
                 placeholder="Enter product title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { setTitle(e.target.value); setError(null); }}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                disabled={loading}
               />
             </div>
 
@@ -132,9 +143,10 @@ const SetAuction = () => {
               <textarea
                 placeholder="Enter product description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { setDescription(e.target.value); setError(null); }}
                 rows={4}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 resize-y"
+                disabled={loading}
               />
             </div>
 
@@ -146,8 +158,9 @@ const SetAuction = () => {
                 type="text"
                 placeholder="Enter image URL"
                 value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
+                onChange={(e) => { setImageUrl(e.target.value); setError(null); }}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                disabled={loading}
               />
             </div>
 
@@ -159,8 +172,9 @@ const SetAuction = () => {
                 type="number"
                 placeholder="Starting Price"
                 value={startingPrice}
-                onChange={(e) => setStartingPrice(e.target.value)}
+                onChange={(e) => { setStartingPrice(e.target.value); setError(null); }}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                disabled={loading}
               />
             </div>
 
@@ -171,8 +185,9 @@ const SetAuction = () => {
               <input
                 type="date"
                 value={auctionDate}
-                onChange={(e) => setAuctionDate(e.target.value)}
+                onChange={(e) => { setAuctionDate(e.target.value); setError(null); }}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                disabled={loading}
               />
             </div>
 
@@ -183,8 +198,9 @@ const SetAuction = () => {
               <input
                 type="time"
                 value={auctionTime}
-                onChange={(e) => setAuctionTime(e.target.value)}
+                onChange={(e) => { setAuctionTime(e.target.value); setError(null); }}
                 className="w-full bg-gray-100 border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                disabled={loading}
               />
             </div>
 
