@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, updateDoc } from "firebase/firestore";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  getDoc,
+} from "firebase/firestore";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+} from "firebase/auth";
 import { db, auth } from "../firebase";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,6 +25,7 @@ import { motion } from "framer-motion";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import BidModal from "./BidModal";
+import { toast } from "sonner";
 
 // Define the Auction interface
 interface Auction {
@@ -20,6 +35,7 @@ interface Auction {
   imageUrl: string;
   endTime: string;
   status: string;
+  sellerId?: string; // Added to identify the seller
   unsubscribe?: () => void; // For the onSnapshot unsubscribe function
 }
 
@@ -28,6 +44,7 @@ const Auctions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const ensureAuthenticated = () => {
@@ -36,6 +53,7 @@ const Auctions = () => {
           try {
             await signInAnonymously(auth);
             console.log("Signed in anonymously");
+            setCurrentUserId(null);
             fetchAuctions();
           } catch (err) {
             console.error("Anonymous sign-in failed", err);
@@ -44,6 +62,7 @@ const Auctions = () => {
           }
         } else {
           console.log("User signed in:", user.uid);
+          setCurrentUserId(user.uid);
           fetchAuctions();
         }
       });
@@ -59,18 +78,25 @@ const Auctions = () => {
           ...doc.data(),
         })) as Auction[];
 
-        // Set up real-time listeners for each auction's bids
+        // Set up real-time listeners for each auction
         const auctionListWithListeners = auctionList
-          .filter(auction => {
-            // Keep auctions that haven't ended yet
-            return !auction.endTime || new Date(auction.endTime).getTime() > Date.now();
+          .filter((auction) => {
+            // Keep auctions that haven't ended yet or ended recently
+            return (
+              !auction.endTime ||
+              new Date(auction.endTime).getTime() > Date.now() ||
+              (auction.status === "ended" &&
+                new Date(auction.endTime).getTime() >
+                  Date.now() - 60 * 60 * 1000)
+            );
           })
           .map((auction) => {
+            // Listener for bids
             const bidsQuery = query(
               collection(db, "auctions", auction.id, "bids"),
               orderBy("timestamp", "desc")
             );
-            const unsubscribe = onSnapshot(bidsQuery, (snapshot) => {
+            const unsubscribeBids = onSnapshot(bidsQuery, (snapshot) => {
               const highestBid = snapshot.docs[0]?.data()?.amount || auction.price;
               setAuctions((prev) =>
                 prev.map((item) =>
@@ -78,7 +104,32 @@ const Auctions = () => {
                 )
               );
             });
-            return { ...auction, unsubscribe };
+
+            // Listener for auction status
+            const auctionRef = doc(db, "auctions", auction.id);
+            const unsubscribeStatus = onSnapshot(auctionRef, (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                const updatedAuction = {
+                  id: docSnapshot.id,
+                  ...docSnapshot.data(),
+                } as Auction;
+                setAuctions((prev) =>
+                  prev.map((item) =>
+                    item.id === auction.id
+                      ? { ...item, status: updatedAuction.status }
+                      : item
+                  )
+                );
+              }
+            });
+
+            return {
+              ...auction,
+              unsubscribe: () => {
+                unsubscribeBids();
+                unsubscribeStatus();
+              },
+            };
           });
 
         setAuctions(auctionListWithListeners);
@@ -99,21 +150,34 @@ const Auctions = () => {
     };
   }, []);
 
-  // Add a function to automatically update auction status when ended
+  // Handle manual auction ending by seller
+  const handleEndAuction = async (auctionId: string) => {
+    try {
+      const auctionRef = doc(db, "auctions", auctionId);
+      await updateDoc(auctionRef, { status: "ended", endTime: new Date().toISOString() });
+      console.log(`Auction ${auctionId} ended by seller`);
+    } catch (err) {
+      console.error("Error ending auction:", err);
+      setError("Failed to end auction. Please try again.");
+    }
+  };
+
+  // Update auction status and filter ended auctions
   useEffect(() => {
     const intervalId = setInterval(() => {
       setAuctions((prevAuctions) => {
         const updatedAuctions = prevAuctions.map((auction) => {
-          if (auction.endTime && new Date(auction.endTime).getTime() <= Date.now() && auction.status !== 'ended') {
-            // Update the auction status in Firestore
+          if (
+            auction.endTime &&
+            new Date(auction.endTime).getTime() <= Date.now() &&
+            auction.status !== "ended"
+          ) {
             try {
               const auctionRef = doc(db, "auctions", auction.id);
-              updateDoc(auctionRef, { status: 'ended' }).catch(err => {
+              updateDoc(auctionRef, { status: "ended" }).catch((err) => {
                 console.error("Error updating auction status:", err);
               });
-              
-              // Return the updated auction for the UI
-              return { ...auction, status: 'ended' };
+              return { ...auction, status: "ended" };
             } catch (err) {
               console.error("Error updating auction status:", err);
               return auction;
@@ -121,49 +185,88 @@ const Auctions = () => {
           }
           return auction;
         });
-        
-        // Filter out ended auctions if they should no longer be displayed
-        return updatedAuctions.filter(auction => {
-          // Keep auctions that haven't ended yet or ended very recently (within 1 hour)
-          const endTime = auction.endTime ? new Date(auction.endTime).getTime() : Infinity;
+
+        // Filter out ended auctions (keep recently ended for 1 hour)
+        return updatedAuctions.filter((auction) => {
+          const endTime = auction.endTime
+            ? new Date(auction.endTime).getTime()
+            : Infinity;
           const oneHourAgo = Date.now() - 60 * 60 * 1000;
-          return endTime > Date.now() || (endTime <= Date.now() && endTime > oneHourAgo);
+          return (
+            auction.status !== "ended" ||
+            (endTime <= Date.now() && endTime > oneHourAgo)
+          );
         });
       });
     }, 30000); // Check every 30 seconds
-    
+
     return () => clearInterval(intervalId);
   }, []);
 
   const handlePlaceBid = async (id: string, newBid: number, currentBid: number) => {
-    if (newBid <= currentBid) {
-      setError("Please enter a bid higher than the current bid.");
+  if (newBid <= currentBid) {
+    setError("Please enter a bid higher than the current bid.");
+    return;
+  }
+
+  try {
+    if (!auth.currentUser) {
+      setError("Please sign in to place a bid.");
       return;
     }
 
-    try {
-      if (!auth.currentUser) {
-        setError("Please sign in to place a bid.");
-        return;
-      }
+    const bidsQuery = query(
+      collection(db, "auctions", id, "bids"),
+      orderBy("amount", "desc")
+    );
+    const bidsSnapshot = await getDocs(bidsQuery);
+    const previousHighestBid = bidsSnapshot.docs[0]?.data();
 
-      const bidData = {
-        userId: auth.currentUser.uid,
-        amount: newBid,
+    const bidData = {
+      userId: auth.currentUser.uid,
+      amount: newBid,
+      timestamp: new Date().toISOString(),
+    };
+
+    await addDoc(collection(db, "auctions", id, "bids"), bidData);
+
+    if (previousHighestBid && previousHighestBid.userId !== auth.currentUser.uid) {
+      const auctionDoc = await getDoc(doc(db, "auctions", id));
+      const auction = auctionDoc.data() as Auction;
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      const bidderName = userDoc.exists()
+        ? userDoc.data().fullName || userDoc.data().email || "Another Bidder"
+        : "Another Bidder";
+
+      const outbidNotification = {
+        userId: previousHighestBid.userId,
+        type: "outbid",
+        message: `You have been outbid on ${auction.title}! ${bidderName} placed a bid of $${newBid.toFixed(2)}. Place a higher bid now.`,
+        auctionId: id,
         timestamp: new Date().toISOString(),
+        status: "unread",
+        actionUrl: `/auctions#${id}`,
       };
-
-      await addDoc(collection(db, "auctions", id, "bids"), bidData);
-      setSelectedAuction(null);
-    } catch (err: any) {
-      console.error("Error placing bid:", err);
-      if (err.code === "permission-denied") {
-        setError("Cannot place bid. The auction may have ended or you lack permission.");
-      } else {
-        setError("Failed to place bid: " + err.message);
-      }
+      console.log("Sending outbid notification from handlePlaceBid with userId:", previousHighestBid.userId, outbidNotification);
+      await addDoc(collection(db, "notifications"), outbidNotification);
     }
-  };
+
+    setSelectedAuction(null);
+    toast(
+      <>
+        <div className="font-bold">Bid Placed</div>
+        <div>Your bid of ${newBid.toFixed(2)} has been placed successfully.</div>
+      </>
+    );
+  } catch (err: any) {
+    console.error("Error placing bid:", err);
+    if (err.code === "permission-denied") {
+      setError("Cannot place bid. The auction may have ended or you lack permission.");
+    } else {
+      setError("Failed to place bid: " + err.message);
+    }
+  }
+};
 
   const getTimeRemaining = (endTime: string) => {
     const total = Date.parse(endTime) - Date.now();
@@ -216,7 +319,9 @@ const Auctions = () => {
               const timeRemaining = auction.endTime
                 ? getTimeRemaining(auction.endTime)
                 : null;
-              const isActive = timeRemaining && timeRemaining.total > 0;
+              const isActive =
+                auction.status !== "ended" && timeRemaining && timeRemaining.total > 0;
+              const isSeller = currentUserId && auction.sellerId === currentUserId;
 
               return (
                 <motion.div
@@ -225,21 +330,37 @@ const Auctions = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <Card className="bg-white border border-gray-200 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+                  <Card
+                    className={`bg-white border shadow-xl transition-shadow duration-300 ${
+                      !isActive
+                        ? "border-red-300 opacity-70 bg-gray-100"
+                        : "border-gray-200 hover:shadow-2xl"
+                    }`}
+                  >
                     <CardHeader>
                       <img
                         src={auction.imageUrl}
                         alt={auction.title}
-                        className="w-full h-56 object-cover rounded-t-md transition-transform duration-300 hover:scale-105"
+                        className={`w-full h-56 object-cover rounded-t-md transition-transform duration-300 ${
+                          !isActive ? "grayscale" : "hover:scale-105"
+                        }`}
                       />
                     </CardHeader>
                     <CardContent className="p-4">
-                      <h3 className="text-xl font-bold text-blue-600 truncate">
+                      <h3
+                        className={`text-xl font-bold truncate ${
+                          !isActive ? "text-gray-500" : "text-blue-600"
+                        }`}
+                      >
                         {auction.title}
                       </h3>
                       <p className="text-gray-600 mt-1">
                         Current Bid:{" "}
-                        <span className="text-green-600 font-semibold">
+                        <span
+                          className={`font-semibold ${
+                            !isActive ? "text-gray-500" : "text-green-600"
+                          }`}
+                        >
                           ${auction.price}
                         </span>
                       </p>
@@ -256,7 +377,7 @@ const Auctions = () => {
                         </Badge>
                       )}
                     </CardContent>
-                    <CardFooter className="p-4">
+                    <CardFooter className="p-4 flex flex-col space-y-2">
                       <Button
                         onClick={() => setSelectedAuction(auction)}
                         disabled={!isActive}
@@ -268,6 +389,15 @@ const Auctions = () => {
                       >
                         {isActive ? "Place a Bid" : "Closed"}
                       </Button>
+                      {isSeller && isActive && (
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleEndAuction(auction.id)}
+                          className="w-full"
+                        >
+                          End Auction
+                        </Button>
+                      )}
                     </CardFooter>
                   </Card>
                 </motion.div>
