@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  ShoppingBag, 
-  Heart, 
+import {
+  ShoppingBag,
+  Heart,
   User,
   Menu,
   X,
@@ -14,18 +14,26 @@ import {
   Send,
   Trash,
   Check,
-  LogOut
+  LogOut,
 } from "lucide-react";
 import { auth, db } from "../pages/firebase";
 import { signOut } from "firebase/auth";
-import { collection, onSnapshot, query, where, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, updateDoc, doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getUnreadMessageCount, getConversationPreviews, markMessagesAsRead, sendMessage, getMessages, deleteMessage } from "@/services/chatService";
+import {
+  getUnreadMessageCount,
+  getConversationPreviews,
+  markMessagesAsRead,
+  sendMessage,
+  getMessages,
+  deleteMessage,
+} from "@/services/chatService";
 import { ChatPreview, Message } from "@/models/chat";
 import { formatChatTime } from "@/utils/dateUtils";
 import { Textarea } from "@/components/ui/textarea";
 import EmojiPicker from "emoji-picker-react";
+import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
   id: string;
@@ -35,6 +43,7 @@ interface Notification {
   status: "unread" | "read";
   timestamp: string;
   type: "won" | "outbid";
+  actionUrl?: string;
 }
 
 const Navbar = () => {
@@ -46,7 +55,7 @@ const Navbar = () => {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
-  const [selectedChatUser, setSelectedChatUser] = useState<{id: string, name: string, image: string} | null>(null);
+  const [selectedChatUser, setSelectedChatUser] = useState<{ id: string; name: string; image: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -55,89 +64,111 @@ const Navbar = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Track auth state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUserId(user ? user.uid : null);
-      setIsAuthenticated(!!user);
+      if (user) {
+        console.log("User authenticated, userId:", user.uid, "isAnonymous:", user.isAnonymous);
+        setUserId(user.uid);
+        setIsAuthenticated(true);
+      } else {
+        console.log("No user authenticated");
+        setUserId(null);
+        setIsAuthenticated(false);
+        setNotifications([]);
+      }
     });
     return () => unsubscribe();
   }, []);
 
+  // Fetch notifications only when userId is stable
   useEffect(() => {
     if (!userId) {
+      console.log("No userId, skipping notifications fetch");
       setNotifications([]);
       return;
     }
 
-    const notificationsQuery = query(collection(db, "notifications"), where("userId", "==", userId));
+    console.log("Setting up notifications listener for userId:", userId);
+    const notificationsQuery = query(
+      collection(db, "notifications"),
+      where("userId", "==", userId)
+    );
+
     const unsubscribe = onSnapshot(
       notificationsQuery,
       (snapshot) => {
+        console.log("Notifications snapshot received, docs:", snapshot.docs.length);
+        if (snapshot.empty) {
+          console.log("No notifications found for userId:", userId);
+        }
+        snapshot.forEach((doc) => {
+          console.log("Notification doc:", { id: doc.id, ...doc.data() });
+        });
         const notificationList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         } as Notification));
-        setNotifications(notificationList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+        setNotifications(
+          notificationList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        );
       },
       (error) => {
         console.error("Error fetching notifications:", error);
-        toast({ title: "Error", description: "Failed to fetch notifications.", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: "Failed to fetch notifications: " + error.message,
+          variant: "destructive",
+        });
       }
     );
-    return () => unsubscribe();
+
+    return () => {
+      console.log("Cleaning up notifications listener for userId:", userId);
+      unsubscribe();
+    };
   }, [userId, toast]);
 
-  // Subscribe to unread message count
+  // Other useEffect hooks for chat functionality (unchanged)
   useEffect(() => {
     if (!userId) {
       setUnreadMessages(0);
       return () => {};
     }
-
     const unsubscribe = getUnreadMessageCount(userId, (count) => {
       setUnreadMessages(count);
     });
-
     return () => unsubscribe();
   }, [userId]);
 
-  // Subscribe to chat previews
   useEffect(() => {
     if (!userId) {
       setChatPreviews([]);
       return () => {};
     }
-
     const unsubscribe = getConversationPreviews(userId, (previews) => {
       setChatPreviews(previews);
     });
-
     return () => unsubscribe();
   }, [userId]);
 
-  // Get messages for selected chat
   useEffect(() => {
     if (!selectedChat) {
       setMessages([]);
       return () => {};
     }
-
     const unsubscribe = getMessages(selectedChat, (chatMessages) => {
       setMessages(chatMessages);
     });
-
-    // Mark messages as read when chat is opened
     if (userId) {
       markMessagesAsRead(selectedChat, userId);
     }
-
     return () => unsubscribe();
   }, [selectedChat, userId]);
 
-  // Scroll to bottom of messages when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
@@ -150,6 +181,23 @@ const Navbar = () => {
     }
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    await markAsRead(notification.id);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+      setIsNotificationsOpen(false);
+    }
+  };
+
+  const formatNotificationDate = (timestamp: string) => {
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  // Rest of the Navbar component (unchanged UI)
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleNotifications = () => setIsNotificationsOpen(!isNotificationsOpen);
   const toggleChat = () => {
@@ -162,9 +210,8 @@ const Navbar = () => {
     setSelectedChatUser({
       id: preview.participantId,
       name: preview.participantName,
-      image: preview.participantImage
+      image: preview.participantImage,
     });
-    
     if (userId) {
       await markMessagesAsRead(preview.id, userId);
     }
@@ -177,7 +224,6 @@ const Navbar = () => {
 
   const handleSendMessage = async () => {
     if (!userId || !selectedChat || !selectedChatUser || !messageText.trim()) return;
-    
     try {
       await sendMessage(selectedChat, userId, selectedChatUser.id, messageText.trim());
       setMessageText("");
@@ -186,14 +232,13 @@ const Navbar = () => {
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!selectedChat) return;
-    
     try {
       await deleteMessage(selectedChat, messageId);
     } catch (error) {
@@ -201,22 +246,22 @@ const Navbar = () => {
       toast({
         title: "Error",
         description: "Failed to delete message.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleEmojiSelect = (emojiData: any) => {
-    setMessageText(prev => prev + emojiData.emoji);
+    setMessageText((prev) => prev + emojiData.emoji);
     setIsEmojiPickerOpen(false);
   };
-  
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({
         title: "Logged Out",
-        description: "You have been successfully logged out."
+        description: "You have been successfully logged out.",
       });
       navigate("/");
     } catch (error) {
@@ -224,7 +269,7 @@ const Navbar = () => {
       toast({
         title: "Error",
         description: "Failed to log out. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -232,14 +277,12 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <span className="text-2xl font-bold tracking-tight text-brand-green">
             Bid<span className="text-brand-accent-yellow">N</span>thrifT
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <Link to="/shop" className="text-sm font-medium hover:text-brand-green transition-colors">
             Shop
@@ -252,9 +295,7 @@ const Navbar = () => {
           </Link>
         </nav>
 
-        {/* Desktop Action Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          {/* Chat Button */}
           <div className="relative">
             <Button variant="ghost" size="icon" onClick={toggleChat}>
               <MessageCircle className="h-5 w-5" />
@@ -264,11 +305,9 @@ const Navbar = () => {
               <span className="sr-only">Messages</span>
             </Button>
 
-            {/* Chat Dropdown */}
             {isChatOpen && (
               <div className="absolute right-0 mt-2 w-80 bg-white border rounded-md shadow-lg z-50">
                 <div className="h-96 flex flex-col">
-                  {/* Chat Header */}
                   <div className="p-3 border-b flex justify-between items-center">
                     <h3 className="text-sm font-semibold">
                       {selectedChat ? (
@@ -281,10 +320,8 @@ const Navbar = () => {
                     </h3>
                   </div>
 
-                  {/* Chat List or Conversation */}
                   <div className="flex-1 overflow-y-auto">
                     {!selectedChat ? (
-                      /* Chat List */
                       chatPreviews.length > 0 ? (
                         <div className="divide-y">
                           {chatPreviews.map((preview) => (
@@ -324,13 +361,12 @@ const Navbar = () => {
                         </div>
                       )
                     ) : (
-                      /* Conversation */
                       <div className="flex flex-col h-full">
                         <div className="flex-1 p-3 overflow-y-auto">
                           {messages.map((message) => {
                             const isOwnMessage = message.senderId === userId;
                             const isSystemMessage = message.senderId === "system";
-                            
+
                             return (
                               <div
                                 key={message.id}
@@ -363,8 +399,7 @@ const Navbar = () => {
                                           <Check className="inline-block ml-1 h-3 w-3" />
                                         )}
                                       </div>
-                                      
-                                      {/* Delete option */}
+
                                       {isOwnMessage && (
                                         <button
                                           onClick={() => handleDeleteMessage(message.id)}
@@ -381,8 +416,7 @@ const Navbar = () => {
                           })}
                           <div ref={messagesEndRef} />
                         </div>
-                        
-                        {/* Message Input */}
+
                         <div className="p-3 border-t">
                           <div className="relative">
                             <Textarea
@@ -410,9 +444,7 @@ const Navbar = () => {
                                 type="button"
                                 onClick={handleSendMessage}
                                 disabled={!messageText.trim()}
-                                className={`p-1 ${
-                                  messageText.trim() ? "text-brand-green" : "text-gray-300"
-                                }`}
+                                className={`p-1 ${messageText.trim() ? "text-brand-green" : "text-gray-300"}`}
                               >
                                 <Send className="h-5 w-5" />
                               </button>
@@ -431,8 +463,7 @@ const Navbar = () => {
               </div>
             )}
           </div>
-          
-          {/* Notifications */}
+
           <div className="relative">
             <Button variant="ghost" size="icon" onClick={toggleNotifications}>
               <Bell className="h-5 w-5" />
@@ -441,8 +472,7 @@ const Navbar = () => {
               )}
               <span className="sr-only">Notifications</span>
             </Button>
-            
-            {/* Existing notifications dropdown */}
+
             {isNotificationsOpen && (
               <div className="absolute right-0 mt-2 w-80 bg-white border rounded-md shadow-lg z-50">
                 <div className="p-4">
@@ -454,12 +484,10 @@ const Navbar = () => {
                         className={`p-2 border-b text-sm cursor-pointer ${
                           notification.status === "unread" ? "bg-gray-100 font-semibold" : ""
                         }`}
-                        onClick={() => markAsRead(notification.id)}
+                        onClick={() => handleNotificationClick(notification)}
                       >
                         <p>{notification.message}</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(notification.timestamp).toLocaleString()}
-                        </p>
+                        <p className="text-xs text-gray-500">{formatNotificationDate(notification.timestamp)}</p>
                       </div>
                     ))
                   ) : (
@@ -469,8 +497,7 @@ const Navbar = () => {
               </div>
             )}
           </div>
-          
-          {/* Rest of desktop action buttons */}
+
           <Button variant="ghost" size="icon" asChild>
             <Link to="/favorites">
               <Heart className="h-5 w-5" />
@@ -489,8 +516,7 @@ const Navbar = () => {
               <span className="sr-only">Profile</span>
             </Link>
           </Button>
-          
-          {/* Conditional Sign In / Log Out button */}
+
           {isAuthenticated ? (
             <Button onClick={handleLogout} className="flex items-center gap-2">
               <LogOut className="h-4 w-4" />
@@ -503,56 +529,47 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="md:hidden"
-          onClick={toggleMenu}
-        >
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleMenu}>
           {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           <span className="sr-only">Menu</span>
         </Button>
       </div>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden fixed inset-0 top-16 z-50 bg-background p-4">
           <nav className="flex flex-col gap-4 pt-4">
-            <Link 
-              to="/shop" 
+            <Link
+              to="/shop"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               Shop
             </Link>
-            <Link 
-              to="/auctions" 
+            <Link
+              to="/auctions"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               Auctions
             </Link>
-            <Link 
-              to="/about" 
+            <Link
+              to="/about"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               About
             </Link>
-            <Link 
-              to="/messages" 
+            <Link
+              to="/messages"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               <MessageCircle className="mr-2 h-4 w-4" />
               Messages
-              {unreadMessages > 0 && (
-                <span className="ml-2 h-2 w-2 bg-red-600 rounded-full"></span>
-              )}
+              {unreadMessages > 0 && <span className="ml-2 h-2 w-2 bg-red-600 rounded-full"></span>}
             </Link>
-            <Link 
-              to="/notifications" 
+            <Link
+              to="/notifications"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
@@ -562,24 +579,24 @@ const Navbar = () => {
                 <span className="ml-2 h-2 w-2 bg-red-600 rounded-full"></span>
               )}
             </Link>
-            <Link 
-              to="/favorites" 
+            <Link
+              to="/favorites"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               <Heart className="mr-2 h-4 w-4" />
               Favorites
             </Link>
-            <Link 
-              to="/cart" 
+            <Link
+              to="/cart"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
               <ShoppingBag className="mr-2 h-4 w-4" />
               Cart
             </Link>
-            <Link 
-              to="/user-details/profile" 
+            <Link
+              to="/user-details/profile"
               className="flex h-10 items-center border-b border-border px-4 text-sm font-medium"
               onClick={toggleMenu}
             >
@@ -588,17 +605,27 @@ const Navbar = () => {
             </Link>
             <div className="flex flex-col gap-2 pt-4">
               {isAuthenticated ? (
-                <Button onClick={() => { handleLogout(); toggleMenu(); }} className="w-full flex items-center justify-center gap-2">
+                <Button
+                  onClick={() => {
+                    handleLogout();
+                    toggleMenu();
+                  }}
+                  className="w-full flex items-center justify-center gap-2"
+                >
                   <LogOut className="h-4 w-4" />
                   Log Out
                 </Button>
               ) : (
                 <>
                   <Button asChild className="w-full">
-                    <Link to="/login" onClick={toggleMenu}>Sign In</Link>
+                    <Link to="/login" onClick={toggleMenu}>
+                      Sign In
+                    </Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full">
-                    <Link to="/register" onClick={toggleMenu}>Create Account</Link>
+                    <Link to="/register" onClick={toggleMenu}>
+                      Create Account
+                    </Link>
                   </Button>
                 </>
               )}
