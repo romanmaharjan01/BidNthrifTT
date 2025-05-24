@@ -27,6 +27,7 @@ import ProductDetail from "./pages/ProductDetail";
 import MyAuctions from "./pages/seller/MyAuctions";
 import SetAuction from "./pages/seller/setAuction";
 import AuctionCompleted from "./pages/auction/AuctionCompleted";
+import AuctionDetails from "./pages/auction/AuctionDetails";
 
 // Import User Details and its child components
 import UserDetails from "./pages/user/UserDetails";
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/auctions" element={<Auctions />} />
+            <Route path="/auctions/:id" element={<ProtectedRoute><AuctionDetails /></ProtectedRoute>} /> {/* New route */}
             <Route path="/sell" element={<Sell />} />
             <Route path="/about" element={<About />} />
             <Route path="/product-detail/:id" element={<ProductDetail />} />
