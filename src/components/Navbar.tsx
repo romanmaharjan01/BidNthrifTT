@@ -19,7 +19,8 @@ import {
 import { auth, db } from "../pages/firebase";
 import { signOut } from "firebase/auth";
 import { collection, onSnapshot, query, where, updateDoc, doc } from "firebase/firestore";
-import { useToast } from "@/hooks/use-toast";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   getUnreadMessageCount,
@@ -42,8 +43,9 @@ interface Notification {
   message: string;
   status: "unread" | "read";
   timestamp: string;
-  type: "won" | "outbid";
-  actionUrl?: string;
+  type: "won" | "outbid" | "payment";
+  actionUrl?: string; // Maps to 'link' in Firestore
+  orderId?: string; // Add orderId for payment notifications related to orders
 }
 
 const Navbar = () => {
@@ -61,18 +63,14 @@ const Navbar = () => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Track auth state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
-        console.log("User authenticated, userId:", user.uid, "isAnonymous:", user.isAnonymous);
         setUserId(user.uid);
         setIsAuthenticated(true);
       } else {
-        console.log("No user authenticated");
         setUserId(null);
         setIsAuthenticated(false);
         setNotifications([]);
@@ -81,15 +79,12 @@ const Navbar = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch notifications only when userId is stable
   useEffect(() => {
     if (!userId) {
-      console.log("No userId, skipping notifications fetch");
       setNotifications([]);
       return;
     }
 
-    console.log("Setting up notifications listener for userId:", userId);
     const notificationsQuery = query(
       collection(db, "notifications"),
       where("userId", "==", userId)
@@ -98,38 +93,62 @@ const Navbar = () => {
     const unsubscribe = onSnapshot(
       notificationsQuery,
       (snapshot) => {
-        console.log("Notifications snapshot received, docs:", snapshot.docs.length);
-        if (snapshot.empty) {
-          console.log("No notifications found for userId:", userId);
-        }
-        snapshot.forEach((doc) => {
-          console.log("Notification doc:", { id: doc.id, ...doc.data() });
+        const notificationList = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          // Dynamically construct actionUrl based on notification type if link is missing or incorrect
+          let computedActionUrl = data.link;
+          if (!computedActionUrl || computedActionUrl === "/user-details/purchases") {
+            if (data.type === "payment") {
+              // For payment notifications, redirect to /payment with orderId or auctionId
+              computedActionUrl = data.orderId
+                ? `/payment/order_${data.orderId}`
+                : data.auctionId
+                ? `/payment/auction_${data.auctionId}`
+                : "/user-details/purchases"; // Fallback
+            } else if (data.type === "won" || data.type === "outbid") {
+              // For auction-related notifications, redirect to auction page
+              computedActionUrl = data.auctionId ? `/auctions/${data.auctionId}` : "/auctions";
+            }
+          }
+
+          return {
+            id: doc.id,
+            userId: data.userId,
+            auctionId: data.auctionId || "",
+            message: data.message,
+            status: data.status,
+            timestamp: data.timestamp,
+            type: data.type,
+            actionUrl: computedActionUrl,
+            orderId: data.orderId || "", // Extract orderId if present
+          } as Notification;
         });
-        const notificationList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Notification));
-        setNotifications(
-          notificationList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        const sortedNotifications = notificationList.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
+        setNotifications(sortedNotifications);
+
+        sortedNotifications.forEach((notification) => {
+          if (notification.status === "unread") {
+            toast.info(`${notification.message} (${formatNotificationDate(notification.timestamp)})`, {
+              position: "top-right",
+              autoClose: 5000,
+              onClick: () => handleNotificationClick(notification),
+            });
+          }
+        });
       },
       (error) => {
-        console.error("Error fetching notifications:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch notifications: " + error.message,
-          variant: "destructive",
+        toast.error(`Error fetching notifications: ${error.message}`, {
+          position: "top-right",
+          autoClose: 5000,
         });
       }
     );
 
-    return () => {
-      console.log("Cleaning up notifications listener for userId:", userId);
-      unsubscribe();
-    };
-  }, [userId, toast]);
+    return () => unsubscribe();
+  }, [userId]);
 
-  // Other useEffect hooks for chat functionality (unchanged)
   useEffect(() => {
     if (!userId) {
       setUnreadMessages(0);
@@ -176,15 +195,33 @@ const Navbar = () => {
     try {
       await updateDoc(doc(db, "notifications", notificationId), { status: "read" });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
-      toast({ title: "Error", description: "Failed to mark notification as read.", variant: "destructive" });
+      toast.error(`Failed to mark notification as read: ${error.message}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
     }
   };
 
   const handleNotificationClick = async (notification: Notification) => {
+    console.log("Notification clicked:", notification); // Debug log
+    console.log("Redirecting to:", notification.actionUrl); // Debug log
     await markAsRead(notification.id);
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
+      setIsNotificationsOpen(false);
+    } else {
+      // Fallback redirection if actionUrl is missing
+      if (notification.type === "payment") {
+        const redirectUrl = notification.orderId
+          ? `/payment/order_${notification.orderId}`
+          : notification.auctionId
+          ? `/payment/auction_${notification.auctionId}`
+          : "/user-details/purchases";
+        navigate(redirectUrl);
+      } else if (notification.type === "won" || notification.type === "outbid") {
+        const redirectUrl = notification.auctionId ? `/auctions/${notification.auctionId}` : "/auctions";
+        navigate(redirectUrl);
+      }
       setIsNotificationsOpen(false);
     }
   };
@@ -197,7 +234,6 @@ const Navbar = () => {
     }
   };
 
-  // Rest of the Navbar component (unchanged UI)
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleNotifications = () => setIsNotificationsOpen(!isNotificationsOpen);
   const toggleChat = () => {
@@ -228,11 +264,9 @@ const Navbar = () => {
       await sendMessage(selectedChat, userId, selectedChatUser.id, messageText.trim());
       setMessageText("");
     } catch (error) {
-      console.error("Error sending message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive",
+      toast.error(`Failed to send message: ${error.message}`, {
+        position: "top-right",
+        autoClose: 5000,
       });
     }
   };
@@ -242,11 +276,9 @@ const Navbar = () => {
     try {
       await deleteMessage(selectedChat, messageId);
     } catch (error) {
-      console.error("Error deleting message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete message.",
-        variant: "destructive",
+      toast.error(`Failed to delete message: ${error.message}`, {
+        position: "top-right",
+        autoClose: 5000,
       });
     }
   };
@@ -259,23 +291,23 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
+      toast.success("You have been successfully logged out.", {
+        position: "top-right",
+        autoClose: 5000,
       });
       navigate("/");
     } catch (error) {
       console.error("Error signing out:", error);
-      toast({
-        title: "Error",
-        description: "Failed to log out. Please try again.",
-        variant: "destructive",
+      toast.error("Failed to log out. Please try again.", {
+        position: "top-right",
+        autoClose: 5000,
       });
     }
   };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
+      <ToastContainer />
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <span className="text-2xl font-bold tracking-tight text-brand-green">
